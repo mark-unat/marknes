@@ -5,6 +5,7 @@ cc_binary {
     srcs: [
         "src/Memory64KB.cpp",
         "src/Bus.cpp",
+        "src/Cpu.cpp",
         "src/main.cpp",
     ],
 
