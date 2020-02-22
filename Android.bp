@@ -1,0 +1,13 @@
+cc_binary {
+
+    name: "marknes",
+
+    srcs: [
+        "src/Memory64KB.cpp",
+        "src/Bus.cpp",
+        "src/main.cpp",
+    ],
+
+    clang: true,
+
+}
