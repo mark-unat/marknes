@@ -5,6 +5,8 @@
 #include <string>
 
 #include "IDevice.hpp"
+#include "Ppu.hpp"
+#include "Cartridge.hpp"
 
 enum class AddressMode {
 	IMP,
@@ -92,7 +94,7 @@ enum class StatusBit {
     bitNegative,
 };
 
-typedef struct statusFlags {
+typedef struct StatusFlags {
     bool carry : 1;
     bool zero : 1;
     bool disableInterrupt : 1;
@@ -101,9 +103,9 @@ typedef struct statusFlags {
     bool unused : 1;
     bool overflow : 1;
     bool negative : 1;
-} statusFlags;
+} StatusFlags;
 
-typedef struct cpuRegister {
+typedef struct CpuRegister {
     uint16_t programCounter;
     uint8_t stackPointer;
     uint8_t accumulator;
@@ -111,24 +113,26 @@ typedef struct cpuRegister {
     uint8_t registerY;
     union {
         uint8_t status;
-        statusFlags statusFlag;
+        StatusFlags statusFlag;
     };
-} cpuRegister;
+} CpuRegister;
 
-typedef struct command {
+typedef struct Command {
     OpCode opCode;
     AddressMode addressMode;
     std::string name;
     uint8_t cycles = 0;
-} command;
+} Command;
 
 class Cpu {
 public:
-	Cpu(std::shared_ptr<IDevice> bus);
+	Cpu(std::shared_ptr<IDevice> bus,
+        std::shared_ptr<Ppu> ppu,
+        std::shared_ptr<Cartridge> cartridge);
 	~Cpu();
 
 	// CPU registers
-    cpuRegister registers;
+    CpuRegister registers;
 
 	// CPU interrupts
 	void resetInterrupt();
@@ -148,7 +152,13 @@ private:
 	// Bus device attached to this Cpu
     std::shared_ptr<IDevice> _bus;
 
-	std::vector<command> _commandTable;
+    // PPU Interface
+    std::shared_ptr<Ppu> _ppu;
+
+    // NES Catridge
+    std::shared_ptr<Cartridge> _cartridge;
+
+	std::vector<Command> _commandTable;
 
     bool _runAddressMode(AddressMode addressMode);
     bool _runOpCode(OpCode opCode);

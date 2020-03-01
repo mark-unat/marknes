@@ -8,7 +8,7 @@ public:
     /// @pararm address - which address to read from
     /// @param data - data that was read
     /// @return bool - if read was successful or not
-	virtual bool read(uint16_t address, uint8_t *data) = 0;
+	virtual bool read(uint16_t address, uint8_t &data) = 0;
 
     /// Write data to the Device
     /// @param address - which address to write to
