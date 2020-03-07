@@ -743,7 +743,13 @@ bool Cpu::_modeIND()
 
 	auto address = (highByte << 8) | lowByte;
 	if (lowByte == 0x00FF) {
-        // Page boundary hardware bug
+        /*
+         * Emulate Hardware Bug:
+         * It cannot correctly read addresses if it was of the form 0x--FF. When
+         * reading two bytes from the specified address, it would not carry the
+         * FF->00 overflow into the --. For example when the address is 0x23FF,
+         * it would read 0x2300 and 0x23FF, instead of 0x2400 and 0x23FF.
+         */
         _bus->read((address & 0xFF00), data);
         _currentAddress = static_cast<uint16_t>(data) << 8;
         _bus->read(address, data);
