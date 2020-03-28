@@ -19,52 +19,52 @@ Ppu::~Ppu()
 
 bool Ppu::read(uint16_t address, uint8_t &/*data*/)
 {
-	switch (static_cast<PpuRegister>(address)) {
-    case PpuRegister::Control:
-		break;
-    case PpuRegister::Mask:
-		break;
-    case PpuRegister::Status:
-		break;
-    case PpuRegister::OAMAddress:
-		break;
-    case PpuRegister::OAMData:
-		break;
-    case PpuRegister::Scroll:
-		break;
-    case PpuRegister::Address:
-		break;
-    case PpuRegister::Data:
-		break;
+    switch (static_cast<PpuRegisterAddress>(address)) {
+    case PpuRegisterAddress::Control:
+        break;
+    case PpuRegisterAddress::Mask:
+        break;
+    case PpuRegisterAddress::Status:
+        break;
+    case PpuRegisterAddress::OAMAddress:
+        break;
+    case PpuRegisterAddress::OAMData:
+        break;
+    case PpuRegisterAddress::Scroll:
+        break;
+    case PpuRegisterAddress::VRAMAddress:
+        break;
+    case PpuRegisterAddress::VRAMData:
+        break;
     default:
         break;
-	}
+    }
 
-	return true;
+    return true;
 }
 
 bool Ppu::write(uint16_t address, uint8_t /*data*/)
 {
-	switch (static_cast<PpuRegister>(address)) {
-    case PpuRegister::Control:
-		break;
-    case PpuRegister::Mask:
-		break;
-    case PpuRegister::Status:
-		break;
-    case PpuRegister::OAMAddress:
-		break;
-    case PpuRegister::OAMData:
-		break;
-    case PpuRegister::Scroll:
-		break;
-    case PpuRegister::Address:
-		break;
-    case PpuRegister::Data:
-		break;
+    switch (static_cast<PpuRegisterAddress>(address)) {
+    case PpuRegisterAddress::Control:
+        break;
+    case PpuRegisterAddress::Mask:
+        break;
+    case PpuRegisterAddress::Status:
+        break;
+    case PpuRegisterAddress::OAMAddress:
+        break;
+    case PpuRegisterAddress::OAMData:
+        break;
+    case PpuRegisterAddress::Scroll:
+        break;
+    case PpuRegisterAddress::VRAMAddress:
+        break;
+    case PpuRegisterAddress::VRAMData:
+        break;
     default:
         break;
-	}
+    }
 
     return true;
 }
