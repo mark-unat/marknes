@@ -73,6 +73,12 @@ typedef struct PpuRegister {
     uint8_t vramData;
 } PpuRegister;
 
+typedef struct Pixel {
+    uint8_t red;;
+    uint8_t green;
+    uint8_t blue;
+} Pixel;
+
 class Ppu {
 public:
 	Ppu(std::shared_ptr<IDevice> bus,
@@ -108,4 +114,5 @@ private:
     std::shared_ptr<Cartridge> _cartridge;
 
     std::array<uint8_t, PPU_FRAME_BUFFER_RGB_SIZE> _frameBufferRGB;
+    std::vector<Pixel> _palettePixelTable;
 };
