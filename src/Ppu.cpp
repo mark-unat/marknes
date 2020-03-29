@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Ppu.hpp"
 
 constexpr uint8_t resetStackOffset = 0xFD;
@@ -85,3 +87,7 @@ void Ppu::tick()
 	}
 }
 
+void Ppu::getFrameBuffer(uint8_t *frameBuffer)
+{
+    std::copy(std::begin(_frameBufferRGB), std::end(_frameBufferRGB), frameBuffer);
+}

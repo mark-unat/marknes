@@ -13,6 +13,7 @@ cc_binary {
         "src/Cartridge.cpp",
         "src/Ppu.cpp",
         "src/Cpu.cpp",
+        "src/Nes.cpp",
         "src/main.cpp",
     ],
 

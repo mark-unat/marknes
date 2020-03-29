@@ -3,10 +3,16 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <array>
 
 #include "IDevice.hpp"
 #include "ITable.hpp"
 #include "Cartridge.hpp"
+
+#define PPU_FRAME_WIDTH 256
+#define PPU_FRAME_HEIGHT 240
+#define PPU_FRAME_BUFFER_SIZE (PPU_FRAME_WIDTH * PPU_FRAME_HEIGHT)
+#define PPU_FRAME_BUFFER_RGB_SIZE (PPU_FRAME_BUFFER_SIZE * 3)
 
 enum class PpuRegisterAddress {
     Control,
@@ -79,6 +85,9 @@ public:
     // Execute one clock cycle
 	void tick();
 
+    // Get Frame Buffer
+    void getFrameBuffer(uint8_t *frameBuffer);
+
     // PPU registers
     PpuRegister registers;
 
@@ -97,4 +106,6 @@ private:
 
     // NES Catridge
     std::shared_ptr<Cartridge> _cartridge;
+
+    std::array<uint8_t, PPU_FRAME_BUFFER_RGB_SIZE> _frameBufferRGB;
 };

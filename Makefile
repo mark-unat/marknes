@@ -16,6 +16,7 @@ SRCS := \
 	src/PatternTable.cpp \
 	src/PpuBus.cpp \
 	src/Ppu.cpp \
+	src/Nes.cpp \
 	src/main.cpp \
 
 OBJS := $(SRCS:.cpp=.o)
