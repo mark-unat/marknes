@@ -104,7 +104,15 @@ void Ppu::tick()
 	}
 }
 
-void Ppu::getFrameBuffer(uint8_t *frameBuffer)
+uint8_t* Ppu::getFrameBuffer()
 {
-    std::copy(std::begin(_frameBufferRGB), std::end(_frameBufferRGB), frameBuffer);
+    // Temporary static noise
+    for (uint32_t pixel = 0; pixel < PPU_FRAME_WIDTH * PPU_FRAME_HEIGHT * 3;) {
+        uint8_t value = rand() % 255;
+        _frameBufferRGB[pixel++] = value;
+        _frameBufferRGB[pixel++] = value;
+        _frameBufferRGB[pixel++] = value;
+    }
+
+    return _frameBufferRGB;
 }

@@ -92,7 +92,7 @@ public:
 	void tick();
 
     // Get Frame Buffer
-    void getFrameBuffer(uint8_t *frameBuffer);
+    uint8_t* getFrameBuffer();
 
     // PPU registers
     PpuRegister registers;
@@ -113,6 +113,6 @@ private:
     // NES Catridge
     std::shared_ptr<Cartridge> _cartridge;
 
-    std::array<uint8_t, PPU_FRAME_BUFFER_RGB_SIZE> _frameBufferRGB;
+    uint8_t _frameBufferRGB[PPU_FRAME_BUFFER_RGB_SIZE];
     std::vector<Pixel> _palettePixelTable;
 };

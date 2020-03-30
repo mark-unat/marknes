@@ -12,17 +12,17 @@
 #include "Ppu.hpp"
 #include "Cpu.hpp"
 
-#define NES_FRAME_WIDTH PPU_FRAME_WIDTH
-#define NES_FRAME_HEIGHT PPU_FRAME_HEIGHT
-#define NES_FRAME_BUFFER_SIZE PPU_FRAME_BUFFER_RGB_SIZE
-
 class Nes {
 public:
-	Nes(std::string fileName);
+	Nes();
 	~Nes();
 
+    void load(std::string fileName);
     void reset();
-    void getFrameBuffer(uint8_t *frameBuffer);
+    uint8_t* getFrameBuffer();
+    uint32_t getWidth() const { return PPU_FRAME_WIDTH; };
+    uint32_t getHeight() const { return PPU_FRAME_HEIGHT; };
+    const char* getName() const { return _fileName.c_str(); };
 
 private:
     std::string _fileName;

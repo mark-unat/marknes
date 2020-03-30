@@ -1,8 +1,17 @@
 #include "Nes.hpp"
 
-Nes::Nes(std::string fileName)
-: _fileName{std::move(fileName)}
+Nes::Nes()
 {
+}
+
+Nes::~Nes()
+{
+}
+
+void Nes::load(std::string fileName)
+{
+    _fileName = std::move(fileName);
+
     _cpuRam = std::make_shared<Memory2KB>();
     //_apu = std::make_shared<Apu>();
     //_control = std::make_shared<Control>();
@@ -34,10 +43,8 @@ Nes::Nes(std::string fileName)
         counter++;
     }
     */
-}
-
-Nes::~Nes()
-{
+    //_cpu->reset();
+    //_ppu->reset();
 }
 
 void Nes::reset()
@@ -46,7 +53,7 @@ void Nes::reset()
     //_ppu->reset();
 }
 
-void Nes::getFrameBuffer(uint8_t *frameBuffer)
+uint8_t* Nes::getFrameBuffer()
 {
-    _ppu->getFrameBuffer(frameBuffer);
+    return _ppu->getFrameBuffer();
 }
