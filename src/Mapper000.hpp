@@ -10,8 +10,8 @@ public:
 
     /// @name Implementation IMapper
     /// @[
-	bool getPrgAddress(uint16_t address, uint32_t &prgAddress);
-	bool getChrAddress(uint16_t address, uint32_t &chrAddress);
+    bool getPrgAddress(uint16_t address, uint32_t& prgAddress);
+    bool getChrAddress(uint16_t address, uint32_t& chrAddress);
     /// @]
 
 private:

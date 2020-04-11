@@ -1,12 +1,8 @@
 #include "Nes.hpp"
 
-Nes::Nes()
-{
-}
+Nes::Nes() {}
 
-Nes::~Nes()
-{
-}
+Nes::~Nes() {}
 
 void Nes::load(std::string fileName)
 {
@@ -23,7 +19,7 @@ void Nes::load(std::string fileName)
     _ppuBus = std::make_shared<PpuBus>(_nameTable, _paletteTable, _cartridge);
     _ppu = std::make_shared<Ppu>(_ppuBus, _cartridge);
 
-    _cpuBus = std::make_shared<CpuBus>(_cpuRam, _ppu, _cartridge/*, _apu, _control*/);
+    _cpuBus = std::make_shared<CpuBus>(_cpuRam, _ppu, _cartridge /*, _apu, _control*/);
     _cpu = std::make_shared<Cpu>(_cpuBus);
 }
 

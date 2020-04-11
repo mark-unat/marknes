@@ -13,8 +13,8 @@
 
 class Nes {
 public:
-	Nes();
-	~Nes();
+    Nes();
+    ~Nes();
 
     void load(std::string fileName);
     void reset();
@@ -39,4 +39,3 @@ private:
 
     uint8_t _counter{0x00};
 };
-

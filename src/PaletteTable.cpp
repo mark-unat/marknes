@@ -23,7 +23,7 @@ bool PaletteTable::read(uint16_t address, uint8_t& data)
         return true;
     }
 
-	return false;
+    return false;
 }
 
 bool PaletteTable::write(uint16_t address, uint8_t data)
@@ -35,6 +35,5 @@ bool PaletteTable::write(uint16_t address, uint8_t data)
         return true;
     }
 
-	return false;
+    return false;
 }
-

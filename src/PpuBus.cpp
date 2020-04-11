@@ -1,15 +1,15 @@
 #include "PpuBus.hpp"
 
 PpuBus::PpuBus(std::shared_ptr<IMemory> nameTable,
-        std::shared_ptr<IMemory> paletteTable,
-        std::shared_ptr<Cartridge> cartridge)
+               std::shared_ptr<IMemory> paletteTable,
+               std::shared_ptr<Cartridge> cartridge)
 : _nameTable{nameTable}
 , _paletteTable{paletteTable}
 , _cartridge{cartridge}
 {
 }
 
-bool PpuBus::read(uint16_t address, uint8_t &data)
+bool PpuBus::read(uint16_t address, uint8_t& data)
 {
     if ((address >= patternTableBaseAddress) && (address <= patternTableEndAddress)) {
         return _cartridge->readChrRom(address, data);
@@ -37,10 +37,8 @@ bool PpuBus::read(uint16_t address, uint8_t &data)
     } else if ((address >= paletteTableBaseAddress) && (address <= paletteTableEndAddress)) {
         auto newAddress{address};
         // The following addresses are just mirrors
-        if ((address == paletteTableBG1Address) ||
-            (address == paletteTableBG2Address) ||
-            (address == paletteTableBG3Address) ||
-            (address == paletteTableBG4Address)) {
+        if ((address == paletteTableBG1Address) || (address == paletteTableBG2Address) ||
+            (address == paletteTableBG3Address) || (address == paletteTableBG4Address)) {
             newAddress = address - (paletteTableBG1Address - paletteTableBaseAddress);
         }
         return _paletteTable->read(newAddress, data);
@@ -77,10 +75,8 @@ bool PpuBus::write(uint16_t address, uint8_t data)
     } else if ((address >= paletteTableBaseAddress) && (address <= paletteTableEndAddress)) {
         auto newAddress{address};
         // The following addresses are just mirrors
-        if ((address == paletteTableBG1Address) ||
-            (address == paletteTableBG2Address) ||
-            (address == paletteTableBG3Address) ||
-            (address == paletteTableBG4Address)) {
+        if ((address == paletteTableBG1Address) || (address == paletteTableBG2Address) ||
+            (address == paletteTableBG3Address) || (address == paletteTableBG4Address)) {
             newAddress = address - (paletteTableBG1Address - paletteTableBaseAddress);
         }
         return _paletteTable->write(newAddress, data);
@@ -88,4 +84,3 @@ bool PpuBus::write(uint16_t address, uint8_t data)
 
     return false;
 }
-

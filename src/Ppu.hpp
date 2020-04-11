@@ -74,7 +74,8 @@ typedef struct PpuRegister {
 } PpuRegister;
 
 typedef struct Pixel {
-    uint8_t red;;
+    uint8_t red;
+    ;
     uint8_t green;
     uint8_t blue;
 } Pixel;
@@ -89,16 +90,15 @@ typedef struct Pattern {
 
 class Ppu {
 public:
-	Ppu(std::shared_ptr<IDevice> bus,
-        std::shared_ptr<Cartridge> cartridge);
-	~Ppu();
+    Ppu(std::shared_ptr<IDevice> bus, std::shared_ptr<Cartridge> cartridge);
+    ~Ppu();
 
-	bool read(uint16_t address, uint8_t &data);
-	bool write(uint16_t address, uint8_t data);
+    bool read(uint16_t address, uint8_t& data);
+    bool write(uint16_t address, uint8_t data);
 
     // Execute one clock cycle
-	void tick();
-	void reset();
+    void tick();
+    void reset();
 
     // Get Frame Buffer
     uint8_t* getFrameBuffer();
@@ -113,12 +113,12 @@ public:
     uint8_t vramCachedData{0x00};
 
 private:
-	uint16_t _cycles = 0;
-	uint16_t _scanLine = 0;
-	bool _frameDone{false};
+    uint16_t _cycles = 0;
+    uint16_t _scanLine = 0;
+    bool _frameDone{false};
     bool _vBlank{false};
 
-	// Bus device attached to this Ppu
+    // Bus device attached to this Ppu
     std::shared_ptr<IDevice> _bus;
 
     // NES Catridge

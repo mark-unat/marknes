@@ -13,16 +13,16 @@ Memory2KB::Memory2KB()
     }
 }
 
-bool Memory2KB::read(uint16_t address, uint8_t &data)
+bool Memory2KB::read(uint16_t address, uint8_t& data)
 {
     // Address mirrored every 2KB
     auto localAddress = address & (size2KB - 1);
     if ((localAddress >= 0) && (localAddress < size2KB)) {
-		data = _memory[localAddress];
+        data = _memory[localAddress];
         return true;
     }
 
-	return false;
+    return false;
 }
 
 bool Memory2KB::write(uint16_t address, uint8_t data)
@@ -30,10 +30,9 @@ bool Memory2KB::write(uint16_t address, uint8_t data)
     // Address mirrored every 2KB
     auto localAddress = address & (size2KB - 1);
     if ((localAddress >= 0) && (localAddress < size2KB)) {
-		_memory[localAddress] = data;
+        _memory[localAddress] = data;
         return true;
     }
 
     return false;
 }
-
