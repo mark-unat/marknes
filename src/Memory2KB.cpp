@@ -15,9 +15,10 @@ Memory2KB::Memory2KB()
 
 bool Memory2KB::read(uint16_t address, uint8_t &data)
 {
-    // Check if address is within this Memory range
-	if (address >= 0 && address < static_cast<uint16_t>(size2KB)) {
-		data = _memory[address];
+    // Address mirrored every 2KB
+    auto localAddress = address & (size2KB - 1);
+    if ((localAddress >= 0) && (localAddress < size2KB)) {
+		data = _memory[localAddress];
         return true;
     }
 
@@ -26,9 +27,10 @@ bool Memory2KB::read(uint16_t address, uint8_t &data)
 
 bool Memory2KB::write(uint16_t address, uint8_t data)
 {
-    // Check if address is within this Memory range
-	if (address >= 0 && address < static_cast<uint16_t>(size2KB)) {
-		_memory[address] = data;
+    // Address mirrored every 2KB
+    auto localAddress = address & (size2KB - 1);
+    if ((localAddress >= 0) && (localAddress < size2KB)) {
+		_memory[localAddress] = data;
         return true;
     }
 

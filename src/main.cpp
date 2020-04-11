@@ -8,6 +8,8 @@ GLuint texture = 0;
 
 void renderFrame()
 {
+    nes.renderFrame();
+
     glClearColor(1, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
@@ -46,11 +48,24 @@ void renderFrame()
     glutSwapBuffers();
 }
 
+void help()
+{
+    fprintf(stdout, "Usage:   marknes rom_file\n");
+    fprintf(stdout, "Example: marknes roms/supermario.nes\n");
+}
+
 int main(int argc, char **argv)
 {
+    if (argc <= 1) {
+        help();
+        exit(EXIT_FAILURE);
+    }
+
     fprintf(stdout, "Mark NES Emulator\n");
 
-    nes.load("supermario.nes");
+    auto nesRomFile = std::string{argv[1]};
+    nes.load(nesRomFile);
+    nes.reset();
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE);
@@ -61,5 +76,5 @@ int main(int argc, char **argv)
     glutIdleFunc(&renderFrame);
     glutMainLoop();
 
-    return 0;
+    return EXIT_SUCCESS;
 }

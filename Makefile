@@ -13,7 +13,6 @@ SRCS := \
 	src/Memory2KB.cpp \
 	src/NameTable.cpp \
 	src/PaletteTable.cpp \
-	src/PatternTable.cpp \
 	src/PpuBus.cpp \
 	src/Ppu.cpp \
 	src/Nes.cpp \

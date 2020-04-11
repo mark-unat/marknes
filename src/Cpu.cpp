@@ -7,271 +7,267 @@ constexpr uint16_t nonMaskableInterruptAddress = 0xFFFA;
 constexpr uint16_t resetInterruptAddress = 0xFFFC;
 constexpr uint16_t breakInterruptAddress = 0xFFFE;
 
-Cpu::Cpu(std::shared_ptr<IDevice> bus,
-    std::shared_ptr<Ppu> ppu,
-    std::shared_ptr<Cartridge> cartridge)
+Cpu::Cpu(std::shared_ptr<IDevice> bus)
 : _bus{bus}
-, _ppu{ppu}
-, _cartridge{cartridge}
 {
     // Command Table
 	_commandTable = {
-		{ OpCode::BRK, AddressMode::IMM, "BRK", 7 },
-        { OpCode::ORA, AddressMode::IZX, "ORA", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 3 },
-        { OpCode::ORA, AddressMode::ZP0, "ORA", 3 },
-        { OpCode::ASL, AddressMode::ZP0, "ASL", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::PHP, AddressMode::IMP, "PHP", 3 },
-        { OpCode::ORA, AddressMode::IMM, "ORA", 2 },
-        { OpCode::ASL, AddressMode::IMP, "ASL", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::ORA, AddressMode::ABS, "ORA", 4 },
-        { OpCode::ASL, AddressMode::ABS, "ASL", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-		{ OpCode::BPL, AddressMode::REL, "BPL", 2 },
-        { OpCode::ORA, AddressMode::IZY, "ORA", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::ORA, AddressMode::ZPX, "ORA", 4 },
-        { OpCode::ASL, AddressMode::ZPX, "ASL", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::CLC, AddressMode::IMP, "CLC", 2 },
-        { OpCode::ORA, AddressMode::ABY, "ORA", 4 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::ORA, AddressMode::ABX, "ORA", 4 },
-        { OpCode::ASL, AddressMode::ABX, "ASL", 7 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-		{ OpCode::JSR, AddressMode::ABS, "JSR", 6 },
-        { OpCode::AND, AddressMode::IZX, "AND", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::BIT, AddressMode::ZP0, "BIT", 3 },
-        { OpCode::AND, AddressMode::ZP0, "AND", 3 },
-        { OpCode::ROL, AddressMode::ZP0, "ROL", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::PLP, AddressMode::IMP, "PLP", 4 },
-        { OpCode::AND, AddressMode::IMM, "AND", 2 },
-        { OpCode::ROL, AddressMode::IMP, "ROL", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::BIT, AddressMode::ABS, "BIT", 4 },
-        { OpCode::AND, AddressMode::ABS, "AND", 4 },
-        { OpCode::ROL, AddressMode::ABS, "ROL", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-		{ OpCode::BMI, AddressMode::REL, "BMI", 2 },
-        { OpCode::AND, AddressMode::IZY, "AND", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::AND, AddressMode::ZPX, "AND", 4 },
-        { OpCode::ROL, AddressMode::ZPX, "ROL", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::SEC, AddressMode::IMP, "SEC", 2 },
-        { OpCode::AND, AddressMode::ABY, "AND", 4 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::AND, AddressMode::ABX, "AND", 4 },
-        { OpCode::ROL, AddressMode::ABX, "ROL", 7 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-		{ OpCode::RTI, AddressMode::IMP, "RTI", 6 },
-        { OpCode::EOR, AddressMode::IZX, "EOR", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 3 },
-        { OpCode::EOR, AddressMode::ZP0, "EOR", 3 },
-        { OpCode::LSR, AddressMode::ZP0, "LSR", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::PHA, AddressMode::IMP, "PHA", 3 },
-        { OpCode::EOR, AddressMode::IMM, "EOR", 2 },
-        { OpCode::LSR, AddressMode::IMP, "LSR", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::JMP, AddressMode::ABS, "JMP", 3 },
-        { OpCode::EOR, AddressMode::ABS, "EOR", 4 },
-        { OpCode::LSR, AddressMode::ABS, "LSR", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-		{ OpCode::BVC, AddressMode::REL, "BVC", 2 },
-        { OpCode::EOR, AddressMode::IZY, "EOR", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::EOR, AddressMode::ZPX, "EOR", 4 },
-        { OpCode::LSR, AddressMode::ZPX, "LSR", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::CLI, AddressMode::IMP, "CLI", 2 },
-        { OpCode::EOR, AddressMode::ABY, "EOR", 4 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::EOR, AddressMode::ABX, "EOR", 4 },
-        { OpCode::LSR, AddressMode::ABX, "LSR", 7 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-		{ OpCode::RTS, AddressMode::IMP, "RTS", 6 },
-        { OpCode::ADC, AddressMode::IZX, "ADC", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 3 },
-        { OpCode::ADC, AddressMode::ZP0, "ADC", 3 },
-        { OpCode::ROR, AddressMode::ZP0, "ROR", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::PLA, AddressMode::IMP, "PLA", 4 },
-        { OpCode::ADC, AddressMode::IMM, "ADC", 2 },
-        { OpCode::ROR, AddressMode::IMP, "ROR", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::JMP, AddressMode::IND, "JMP", 5 },
-        { OpCode::ADC, AddressMode::ABS, "ADC", 4 },
-        { OpCode::ROR, AddressMode::ABS, "ROR", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-		{ OpCode::BVS, AddressMode::REL, "BVS", 2 },
-        { OpCode::ADC, AddressMode::IZY, "ADC", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::ADC, AddressMode::ZPX, "ADC", 4 },
-        { OpCode::ROR, AddressMode::ZPX, "ROR", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::SEI, AddressMode::IMP, "SEI", 2 },
-        { OpCode::ADC, AddressMode::ABY, "ADC", 4 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::ADC, AddressMode::ABX, "ADC", 4 },
-        { OpCode::ROR, AddressMode::ABX, "ROR", 7 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-		{ OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::STA, AddressMode::IZX, "STA", 6 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::STY, AddressMode::ZP0, "STY", 3 },
-        { OpCode::STA, AddressMode::ZP0, "STA", 3 },
-        { OpCode::STX, AddressMode::ZP0, "STX", 3 },
-        { OpCode::INV, AddressMode::IMP, "INV", 3 },
-        { OpCode::DEY, AddressMode::IMP, "DEY", 2 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::TXA, AddressMode::IMP, "TXA", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::STY, AddressMode::ABS, "STY", 4 },
-        { OpCode::STA, AddressMode::ABS, "STA", 4 },
-        { OpCode::STX, AddressMode::ABS, "STX", 4 },
-        { OpCode::INV, AddressMode::IMP, "INV", 4 },
-		{ OpCode::BCC, AddressMode::REL, "BCC", 2 },
-        { OpCode::STA, AddressMode::IZY, "STA", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::STY, AddressMode::ZPX, "STY", 4 },
-        { OpCode::STA, AddressMode::ZPX, "STA", 4 },
-        { OpCode::STX, AddressMode::ZPY, "STX", 4 },
-        { OpCode::INV, AddressMode::IMP, "INV", 4 },
-        { OpCode::TYA, AddressMode::IMP, "TYA", 2 },
-        { OpCode::STA, AddressMode::ABY, "STA", 5 },
-        { OpCode::TXS, AddressMode::IMP, "TXS", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 5 },
-        { OpCode::STA, AddressMode::ABX, "STA", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-		{ OpCode::LDY, AddressMode::IMM, "LDY", 2 },
-        { OpCode::LDA, AddressMode::IZX, "LDA", 6 },
-        { OpCode::LDX, AddressMode::IMM, "LDX", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::LDY, AddressMode::ZP0, "LDY", 3 },
-        { OpCode::LDA, AddressMode::ZP0, "LDA", 3 },
-        { OpCode::LDX, AddressMode::ZP0, "LDX", 3 },
-        { OpCode::INV, AddressMode::IMP, "INV", 3 },
-        { OpCode::TAY, AddressMode::IMP, "TAY", 2 },
-        { OpCode::LDA, AddressMode::IMM, "LDA", 2 },
-        { OpCode::TAX, AddressMode::IMP, "TAX", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::LDY, AddressMode::ABS, "LDY", 4 },
-        { OpCode::LDA, AddressMode::ABS, "LDA", 4 },
-        { OpCode::LDX, AddressMode::ABS, "LDX", 4 },
-        { OpCode::INV, AddressMode::IMP, "INV", 4 },
-		{ OpCode::BCS, AddressMode::REL, "BCS", 2 },
-        { OpCode::LDA, AddressMode::IZY, "LDA", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::LDY, AddressMode::ZPX, "LDY", 4 },
-        { OpCode::LDA, AddressMode::ZPX, "LDA", 4 },
-        { OpCode::LDX, AddressMode::ZPY, "LDX", 4 },
-        { OpCode::INV, AddressMode::IMP, "INV", 4 },
-        { OpCode::CLV, AddressMode::IMP, "CLV", 2 },
-        { OpCode::LDA, AddressMode::ABY, "LDA", 4 },
-        { OpCode::TSX, AddressMode::IMP, "TSX", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 4 },
-        { OpCode::LDY, AddressMode::ABX, "LDY", 4 },
-        { OpCode::LDA, AddressMode::ABX, "LDA", 4 },
-        { OpCode::LDX, AddressMode::ABY, "LDX", 4 },
-        { OpCode::INV, AddressMode::IMP, "INV", 4 },
-		{ OpCode::CPY, AddressMode::IMM, "CPY", 2 },
-        { OpCode::CMP, AddressMode::IZX, "CMP", 6 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::CPY, AddressMode::ZP0, "CPY", 3 },
-        { OpCode::CMP, AddressMode::ZP0, "CMP", 3 },
-        { OpCode::DEC, AddressMode::ZP0, "DEC", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::INY, AddressMode::IMP, "INY", 2 },
-        { OpCode::CMP, AddressMode::IMM, "CMP", 2 },
-        { OpCode::DEX, AddressMode::IMP, "DEX", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::CPY, AddressMode::ABS, "CPY", 4 },
-        { OpCode::CMP, AddressMode::ABS, "CMP", 4 },
-        { OpCode::DEC, AddressMode::ABS, "DEC", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-		{ OpCode::BNE, AddressMode::REL, "BNE", 2 },
-        { OpCode::CMP, AddressMode::IZY, "CMP", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::CMP, AddressMode::ZPX, "CMP", 4 },
-        { OpCode::DEC, AddressMode::ZPX, "DEC", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::CLD, AddressMode::IMP, "CLD", 2 },
-        { OpCode::CMP, AddressMode::ABY, "CMP", 4 },
-        { OpCode::NOP, AddressMode::IMP, "NOP", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::CMP, AddressMode::ABX, "CMP", 4 },
-        { OpCode::DEC, AddressMode::ABX, "DEC", 7 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-		{ OpCode::CPX, AddressMode::IMM, "CPX", 2 },
-        { OpCode::SBC, AddressMode::IZX, "SBC", 6 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::CPX, AddressMode::ZP0, "CPX", 3 },
-        { OpCode::SBC, AddressMode::ZP0, "SBC", 3 },
-        { OpCode::INC, AddressMode::ZP0, "INC", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 5 },
-        { OpCode::INX, AddressMode::IMP, "INX", 2 },
-        { OpCode::SBC, AddressMode::IMM, "SBC", 2 },
-        { OpCode::NOP, AddressMode::IMP, "NOP", 2 },
-        { OpCode::SBC, AddressMode::IMP, "INV", 2 },
-        { OpCode::CPX, AddressMode::ABS, "CPX", 4 },
-        { OpCode::SBC, AddressMode::ABS, "SBC", 4 },
-        { OpCode::INC, AddressMode::ABS, "INC", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-		{ OpCode::BEQ, AddressMode::REL, "BEQ", 2 },
-        { OpCode::SBC, AddressMode::IZY, "SBC", 5 },
-        { OpCode::INV, AddressMode::IMP, "INV", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 8 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::SBC, AddressMode::ZPX, "SBC", 4 },
-        { OpCode::INC, AddressMode::ZPX, "INC", 6 },
-        { OpCode::INV, AddressMode::IMP, "INV", 6 },
-        { OpCode::SED, AddressMode::IMP, "SED", 2 },
-        { OpCode::SBC, AddressMode::ABY, "SBC", 4 },
-        { OpCode::NOP, AddressMode::IMP, "NOP", 2 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
-        { OpCode::NOP, AddressMode::IMP, "INV", 4 },
-        { OpCode::SBC, AddressMode::ABX, "SBC", 4 },
-        { OpCode::INC, AddressMode::ABX, "INC", 7 },
-        { OpCode::INV, AddressMode::IMP, "INV", 7 },
+		{ 0x00, OpCode::BRK, 1, AddressMode::IMM, "BRK", 7 },
+        { 0x01, OpCode::ORA, 2, AddressMode::IZX, "ORA", 6 },
+        { 0x02, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x03, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x04, OpCode::NOP, 2, AddressMode::IMP, "NOP", 3 },
+        { 0x05, OpCode::ORA, 2, AddressMode::ZP0, "ORA", 3 },
+        { 0x06, OpCode::ASL, 2, AddressMode::ZP0, "ASL", 5 },
+        { 0x07, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0x08, OpCode::PHP, 1, AddressMode::IMP, "PHP", 3 },
+        { 0x09, OpCode::ORA, 2, AddressMode::IMM, "ORA", 2 },
+        { 0x0A, OpCode::ASL, 1, AddressMode::IMP, "ASL", 2 },
+        { 0x0B, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x0C, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0x0D, OpCode::ORA, 3, AddressMode::ABS, "ORA", 4 },
+        { 0x0E, OpCode::ASL, 3, AddressMode::ABS, "ASL", 6 },
+        { 0x0F, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+		{ 0x10, OpCode::BPL, 2, AddressMode::REL, "BPL", 2 },
+        { 0x11, OpCode::ORA, 2, AddressMode::IZY, "ORA", 5 },
+        { 0x12, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x13, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x14, OpCode::NOP, 2, AddressMode::IMP, "NOP", 4 },
+        { 0x15, OpCode::ORA, 2, AddressMode::ZPX, "ORA", 4 },
+        { 0x16, OpCode::ASL, 2, AddressMode::ZPX, "ASL", 6 },
+        { 0x17, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0x18, OpCode::CLC, 1, AddressMode::IMP, "CLC", 2 },
+        { 0x19, OpCode::ORA, 3, AddressMode::ABY, "ORA", 4 },
+        { 0x1A, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0x1B, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+        { 0x1C, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0x1D, OpCode::ORA, 3, AddressMode::ABX, "ORA", 4 },
+        { 0x1E, OpCode::ASL, 3, AddressMode::ABX, "ASL", 7 },
+        { 0x1F, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+		{ 0x20, OpCode::JSR, 3, AddressMode::ABS, "JSR", 6 },
+        { 0x21, OpCode::AND, 2, AddressMode::IZX, "AND", 6 },
+        { 0x22, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x23, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x24, OpCode::BIT, 2, AddressMode::ZP0, "BIT", 3 },
+        { 0x25, OpCode::AND, 2, AddressMode::ZP0, "AND", 3 },
+        { 0x26, OpCode::ROL, 2, AddressMode::ZP0, "ROL", 5 },
+        { 0x27, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0x28, OpCode::PLP, 1, AddressMode::IMP, "PLP", 4 },
+        { 0x29, OpCode::AND, 2, AddressMode::IMM, "AND", 2 },
+        { 0x2A, OpCode::ROL, 1, AddressMode::IMP, "ROL", 2 },
+        { 0x2B, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x2C, OpCode::BIT, 3, AddressMode::ABS, "BIT", 4 },
+        { 0x2D, OpCode::AND, 3, AddressMode::ABS, "AND", 4 },
+        { 0x2E, OpCode::ROL, 3, AddressMode::ABS, "ROL", 6 },
+        { 0x2F, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+		{ 0x30, OpCode::BMI, 2, AddressMode::REL, "BMI", 2 },
+        { 0x31, OpCode::AND, 2, AddressMode::IZY, "AND", 5 },
+        { 0x32, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x33, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x34, OpCode::NOP, 2, AddressMode::IMP, "NOP", 4 },
+        { 0x35, OpCode::AND, 2, AddressMode::ZPX, "AND", 4 },
+        { 0x36, OpCode::ROL, 2, AddressMode::ZPX, "ROL", 6 },
+        { 0x37, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0x38, OpCode::SEC, 1, AddressMode::IMP, "SEC", 2 },
+        { 0x39, OpCode::AND, 3, AddressMode::ABY, "AND", 4 },
+        { 0x3A, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0x3B, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+        { 0x3C, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0x3D, OpCode::AND, 3, AddressMode::ABX, "AND", 4 },
+        { 0x3E, OpCode::ROL, 3, AddressMode::ABX, "ROL", 7 },
+        { 0x3F, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+		{ 0x40, OpCode::RTI, 1, AddressMode::IMP, "RTI", 6 },
+        { 0x41, OpCode::EOR, 2, AddressMode::IZX, "EOR", 6 },
+        { 0x42, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x43, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x44, OpCode::NOP, 2, AddressMode::IMP, "NOP", 3 },
+        { 0x45, OpCode::EOR, 2, AddressMode::ZP0, "EOR", 3 },
+        { 0x46, OpCode::LSR, 2, AddressMode::ZP0, "LSR", 5 },
+        { 0x47, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0x48, OpCode::PHA, 1, AddressMode::IMP, "PHA", 3 },
+        { 0x49, OpCode::EOR, 2, AddressMode::IMM, "EOR", 2 },
+        { 0x4A, OpCode::LSR, 1, AddressMode::IMP, "LSR", 2 },
+        { 0x4B, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x4C, OpCode::JMP, 3, AddressMode::ABS, "JMP", 3 },
+        { 0x4D, OpCode::EOR, 3, AddressMode::ABS, "EOR", 4 },
+        { 0x4E, OpCode::LSR, 3, AddressMode::ABS, "LSR", 6 },
+        { 0x4F, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+		{ 0x50, OpCode::BVC, 2, AddressMode::REL, "BVC", 2 },
+        { 0x51, OpCode::EOR, 2, AddressMode::IZY, "EOR", 5 },
+        { 0x52, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x53, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x54, OpCode::NOP, 2, AddressMode::IMP, "NOP", 4 },
+        { 0x55, OpCode::EOR, 2, AddressMode::ZPX, "EOR", 4 },
+        { 0x56, OpCode::LSR, 2, AddressMode::ZPX, "LSR", 6 },
+        { 0x57, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0x58, OpCode::CLI, 1, AddressMode::IMP, "CLI", 2 },
+        { 0x59, OpCode::EOR, 3, AddressMode::ABY, "EOR", 4 },
+        { 0x5A, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0x5B, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+        { 0x5C, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0x5D, OpCode::EOR, 3, AddressMode::ABX, "EOR", 4 },
+        { 0x5E, OpCode::LSR, 3, AddressMode::ABX, "LSR", 7 },
+        { 0x5F, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+		{ 0x60, OpCode::RTS, 1, AddressMode::IMP, "RTS", 6 },
+        { 0x61, OpCode::ADC, 2, AddressMode::IZX, "ADC", 6 },
+        { 0x62, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x63, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x64, OpCode::NOP, 2, AddressMode::IMP, "NOP", 3 },
+        { 0x65, OpCode::ADC, 2, AddressMode::ZP0, "ADC", 3 },
+        { 0x66, OpCode::ROR, 2, AddressMode::ZP0, "ROR", 5 },
+        { 0x67, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0x68, OpCode::PLA, 1, AddressMode::IMP, "PLA", 4 },
+        { 0x69, OpCode::ADC, 2, AddressMode::IMM, "ADC", 2 },
+        { 0x6A, OpCode::ROR, 1, AddressMode::IMP, "ROR", 2 },
+        { 0x6B, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x6C, OpCode::JMP, 3, AddressMode::IND, "JMP", 5 },
+        { 0x6D, OpCode::ADC, 3, AddressMode::ABS, "ADC", 4 },
+        { 0x6E, OpCode::ROR, 3, AddressMode::ABS, "ROR", 6 },
+        { 0x6F, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+		{ 0x70, OpCode::BVS, 2, AddressMode::REL, "BVS", 2 },
+        { 0x71, OpCode::ADC, 2, AddressMode::IZY, "ADC", 5 },
+        { 0x72, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x73, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0x74, OpCode::NOP, 2, AddressMode::IMP, "NOP", 4 },
+        { 0x75, OpCode::ADC, 2, AddressMode::ZPX, "ADC", 4 },
+        { 0x76, OpCode::ROR, 2, AddressMode::ZPX, "ROR", 6 },
+        { 0x77, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0x78, OpCode::SEI, 1, AddressMode::IMP, "SEI", 2 },
+        { 0x79, OpCode::ADC, 3, AddressMode::ABY, "ADC", 4 },
+        { 0x7A, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0x7B, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+        { 0x7C, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0x7D, OpCode::ADC, 3, AddressMode::ABX, "ADC", 4 },
+        { 0x7E, OpCode::ROR, 3, AddressMode::ABX, "ROR", 7 },
+        { 0x7F, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+		{ 0x80, OpCode::NOP, 2, AddressMode::IMP, "NOP", 2 },
+        { 0x81, OpCode::STA, 2, AddressMode::IZX, "STA", 6 },
+        { 0x82, OpCode::NOP, 0, AddressMode::IMP, "INV", 2 },
+        { 0x83, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0x84, OpCode::STY, 2, AddressMode::ZP0, "STY", 3 },
+        { 0x85, OpCode::STA, 2, AddressMode::ZP0, "STA", 3 },
+        { 0x86, OpCode::STX, 2, AddressMode::ZP0, "STX", 3 },
+        { 0x87, OpCode::INV, 0, AddressMode::IMP, "INV", 3 },
+        { 0x88, OpCode::DEY, 1, AddressMode::IMP, "DEY", 2 },
+        { 0x89, OpCode::NOP, 0, AddressMode::IMP, "INV", 2 },
+        { 0x8A, OpCode::TXA, 1, AddressMode::IMP, "TXA", 2 },
+        { 0x8B, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x8C, OpCode::STY, 3, AddressMode::ABS, "STY", 4 },
+        { 0x8D, OpCode::STA, 3, AddressMode::ABS, "STA", 4 },
+        { 0x8E, OpCode::STX, 3, AddressMode::ABS, "STX", 4 },
+        { 0x8F, OpCode::INV, 0, AddressMode::IMP, "INV", 4 },
+		{ 0x90, OpCode::BCC, 2, AddressMode::REL, "BCC", 2 },
+        { 0x91, OpCode::STA, 2, AddressMode::IZY, "STA", 6 },
+        { 0x92, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0x93, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0x94, OpCode::STY, 2, AddressMode::ZPX, "STY", 4 },
+        { 0x95, OpCode::STA, 2, AddressMode::ZPX, "STA", 4 },
+        { 0x96, OpCode::STX, 2, AddressMode::ZPY, "STX", 4 },
+        { 0x97, OpCode::INV, 0, AddressMode::IMP, "INV", 4 },
+        { 0x98, OpCode::TYA, 1, AddressMode::IMP, "TYA", 2 },
+        { 0x99, OpCode::STA, 3, AddressMode::ABY, "STA", 5 },
+        { 0x9A, OpCode::TXS, 1, AddressMode::IMP, "TXS", 2 },
+        { 0x9B, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0x9C, OpCode::NOP, 0, AddressMode::IMP, "INV", 5 },
+        { 0x9D, OpCode::STA, 3, AddressMode::ABX, "STA", 5 },
+        { 0x9E, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0x9F, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+		{ 0xA0, OpCode::LDY, 2, AddressMode::IMM, "LDY", 2 },
+        { 0xA1, OpCode::LDA, 2, AddressMode::IZX, "LDA", 6 },
+        { 0xA2, OpCode::LDX, 2, AddressMode::IMM, "LDX", 2 },
+        { 0xA3, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0xA4, OpCode::LDY, 2, AddressMode::ZP0, "LDY", 3 },
+        { 0xA5, OpCode::LDA, 2, AddressMode::ZP0, "LDA", 3 },
+        { 0xA6, OpCode::LDX, 2, AddressMode::ZP0, "LDX", 3 },
+        { 0xA7, OpCode::INV, 0, AddressMode::IMP, "INV", 3 },
+        { 0xA8, OpCode::TAY, 1, AddressMode::IMP, "TAY", 2 },
+        { 0xA9, OpCode::LDA, 2, AddressMode::IMM, "LDA", 2 },
+        { 0xAA, OpCode::TAX, 1, AddressMode::IMP, "TAX", 2 },
+        { 0xAB, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0xAC, OpCode::LDY, 3, AddressMode::ABS, "LDY", 4 },
+        { 0xAD, OpCode::LDA, 3, AddressMode::ABS, "LDA", 4 },
+        { 0xAE, OpCode::LDX, 3, AddressMode::ABS, "LDX", 4 },
+        { 0xAF, OpCode::INV, 0, AddressMode::IMP, "INV", 4 },
+		{ 0xB0, OpCode::BCS, 2, AddressMode::REL, "BCS", 2 },
+        { 0xB1, OpCode::LDA, 2, AddressMode::IZY, "LDA", 5 },
+        { 0xB2, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0xB3, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0xB4, OpCode::LDY, 2, AddressMode::ZPX, "LDY", 4 },
+        { 0xB5, OpCode::LDA, 2, AddressMode::ZPX, "LDA", 4 },
+        { 0xB6, OpCode::LDX, 2, AddressMode::ZPY, "LDX", 4 },
+        { 0xB7, OpCode::INV, 0, AddressMode::IMP, "INV", 4 },
+        { 0xB8, OpCode::CLV, 1, AddressMode::IMP, "CLV", 2 },
+        { 0xB9, OpCode::LDA, 3, AddressMode::ABY, "LDA", 4 },
+        { 0xBA, OpCode::TSX, 1, AddressMode::IMP, "TSX", 2 },
+        { 0xBB, OpCode::INV, 0, AddressMode::IMP, "INV", 4 },
+        { 0xBC, OpCode::LDY, 3, AddressMode::ABX, "LDY", 4 },
+        { 0xBD, OpCode::LDA, 3, AddressMode::ABX, "LDA", 4 },
+        { 0xBE, OpCode::LDX, 3, AddressMode::ABY, "LDX", 4 },
+        { 0xBF, OpCode::INV, 0, AddressMode::IMP, "INV", 4 },
+		{ 0xC0, OpCode::CPY, 2, AddressMode::IMM, "CPY", 2 },
+        { 0xC1, OpCode::CMP, 2, AddressMode::IZX, "CMP", 6 },
+        { 0xC2, OpCode::NOP, 0, AddressMode::IMP, "INV", 2 },
+        { 0xC3, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0xC4, OpCode::CPY, 2, AddressMode::ZP0, "CPY", 3 },
+        { 0xC5, OpCode::CMP, 2, AddressMode::ZP0, "CMP", 3 },
+        { 0xC6, OpCode::DEC, 2, AddressMode::ZP0, "DEC", 5 },
+        { 0xC7, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0xC8, OpCode::INY, 1, AddressMode::IMP, "INY", 2 },
+        { 0xC9, OpCode::CMP, 2, AddressMode::IMM, "CMP", 2 },
+        { 0xCA, OpCode::DEX, 1, AddressMode::IMP, "DEX", 2 },
+        { 0xCB, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0xCC, OpCode::CPY, 3, AddressMode::ABS, "CPY", 4 },
+        { 0xCD, OpCode::CMP, 3, AddressMode::ABS, "CMP", 4 },
+        { 0xCE, OpCode::DEC, 3, AddressMode::ABS, "DEC", 6 },
+        { 0xCF, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+		{ 0xD0, OpCode::BNE, 2, AddressMode::REL, "BNE", 2 },
+        { 0xD1, OpCode::CMP, 2, AddressMode::IZY, "CMP", 5 },
+        { 0xD2, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0xD3, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0xD4, OpCode::NOP, 2, AddressMode::IMP, "NOP", 4 },
+        { 0xD5, OpCode::CMP, 2, AddressMode::ZPX, "CMP", 4 },
+        { 0xD6, OpCode::DEC, 2, AddressMode::ZPX, "DEC", 6 },
+        { 0xD7, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0xD8, OpCode::CLD, 1, AddressMode::IMP, "CLD", 2 },
+        { 0xD9, OpCode::CMP, 3, AddressMode::ABY, "CMP", 4 },
+        { 0xDA, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0xDB, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+        { 0xDC, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0xDD, OpCode::CMP, 3, AddressMode::ABX, "CMP", 4 },
+        { 0xDE, OpCode::DEC, 3, AddressMode::ABX, "DEC", 7 },
+        { 0xDF, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+		{ 0xE0, OpCode::CPX, 2, AddressMode::IMM, "CPX", 2 },
+        { 0xE1, OpCode::SBC, 2, AddressMode::IZX, "SBC", 6 },
+        { 0xE2, OpCode::NOP, 0, AddressMode::IMP, "INV", 2 },
+        { 0xE3, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0xE4, OpCode::CPX, 2, AddressMode::ZP0, "CPX", 3 },
+        { 0xE5, OpCode::SBC, 2, AddressMode::ZP0, "SBC", 3 },
+        { 0xE6, OpCode::INC, 2, AddressMode::ZP0, "INC", 5 },
+        { 0xE7, OpCode::INV, 0, AddressMode::IMP, "INV", 5 },
+        { 0xE8, OpCode::INX, 1, AddressMode::IMP, "INX", 2 },
+        { 0xE9, OpCode::SBC, 2, AddressMode::IMM, "SBC", 2 },
+        { 0xEA, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0xEB, OpCode::SBC, 0, AddressMode::IMP, "INV", 2 },
+        { 0xEC, OpCode::CPX, 3, AddressMode::ABS, "CPX", 4 },
+        { 0xED, OpCode::SBC, 3, AddressMode::ABS, "SBC", 4 },
+        { 0xEE, OpCode::INC, 3, AddressMode::ABS, "INC", 6 },
+        { 0xEF, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+		{ 0xF0, OpCode::BEQ, 2, AddressMode::REL, "BEQ", 2 },
+        { 0xF1, OpCode::SBC, 2, AddressMode::IZY, "SBC", 5 },
+        { 0xF2, OpCode::INV, 0, AddressMode::IMP, "INV", 2 },
+        { 0xF3, OpCode::INV, 0, AddressMode::IMP, "INV", 8 },
+        { 0xF4, OpCode::NOP, 2, AddressMode::IMP, "NOP", 4 },
+        { 0xF5, OpCode::SBC, 2, AddressMode::ZPX, "SBC", 4 },
+        { 0xF6, OpCode::INC, 2, AddressMode::ZPX, "INC", 6 },
+        { 0xF7, OpCode::INV, 0, AddressMode::IMP, "INV", 6 },
+        { 0xF8, OpCode::SED, 1, AddressMode::IMP, "SED", 2 },
+        { 0xF9, OpCode::SBC, 3, AddressMode::ABY, "SBC", 4 },
+        { 0xFA, OpCode::NOP, 1, AddressMode::IMP, "NOP", 2 },
+        { 0xFB, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
+        { 0xFC, OpCode::NOP, 3, AddressMode::IMP, "NOP", 4 },
+        { 0xFD, OpCode::SBC, 3, AddressMode::ABX, "SBC", 4 },
+        { 0xFE, OpCode::INC, 3, AddressMode::ABX, "INC", 7 },
+        { 0xFF, OpCode::INV, 0, AddressMode::IMP, "INV", 7 },
 	};
 }
 
@@ -279,8 +275,8 @@ Cpu::~Cpu()
 {
 }
 
-// Reset Interrupt
-void Cpu::resetInterrupt()
+// Reset
+void Cpu::reset()
 {
     auto data = uint8_t{0x00};
 
@@ -300,6 +296,7 @@ void Cpu::resetInterrupt()
 	registers.stackPointer = resetStackOffset;
     registers.status = 0x00;
     _setStatusFlag(StatusBit::bitUnused, true);
+    _setStatusFlag(StatusBit::bitDisableInterrupt, true);
 
 	// Reset Addresses/Data
 	_relativeAddress = 0x0000;
@@ -307,7 +304,7 @@ void Cpu::resetInterrupt()
 	_currentData = 0x00;
 
 	// Reset cycles
-	_cycles = 8;
+	_cycles = 0;
 }
 
 // Interrupt Request
@@ -371,22 +368,63 @@ void Cpu::nonMaskableInterruptRequest()
 	_cycles = 8;
 }
 
+void Cpu::_disassemble()
+{
+    auto address = registers.programCounter;
+    auto data = uint8_t{0x00};
+    auto opCode = uint8_t{0x00};
+
+    _bus->read(address, opCode);
+    if (_commandTable[opCode].opCodeLength > 0) {
+        char hexData[4] = {0};
+        std::string opData;
+
+        fprintf(stdout, "%04X  ", registers.programCounter);
+        for (int i = 0; i < _commandTable[opCode].opCodeLength; i++) {
+            _bus->read(address, data);
+            address++;
+            fprintf(stdout, "%02X ", data);
+            if (i > 0) {
+                if (i == 1) {
+                    opData += "$";
+                }
+                snprintf(hexData, sizeof(hexData), "%02X", data);
+                opData += hexData;
+            }
+        }
+        if (_commandTable[opCode].opCodeLength == 1) {
+            fprintf(stdout, "\t");
+        }
+        fprintf(stdout, "\t%s %s", _commandTable[opCode].name.c_str(), opData.c_str());
+        if (_commandTable[opCode].opCodeLength <= 2) {
+            fprintf(stdout, "\t");
+        }
+        fprintf(stdout, "\t\t\tA:%02X X:%02X Y:%02X P:%02X SP:%02X\n",
+            registers.accumulator, registers.registerX, registers.registerY,
+            registers.status, registers.stackPointer);
+    }
+}
+
 // Execute one clock cycle
 void Cpu::tick()
 {
 	if (_cycles == 0)
 	{
+        // To enable ASM debugging only
+        //_disassemble();
+
 		// Read next OpCode
         _bus->read(registers.programCounter, _currentOpCode);
-
 		registers.programCounter++;
 
         _setStatusFlag(StatusBit::bitUnused, true);
 
 		_cycles = _commandTable[_currentOpCode].cycles;
+
 		// Execute AddressMode and OpCode and add cycles if needed
-		if (_runAddressMode(_commandTable[_currentOpCode].addressMode) ||
-            _runOpCode(_commandTable[_currentOpCode].opCode)) {
+        auto checkCycle1 = _runAddressMode(_commandTable[_currentOpCode].addressMode);
+        auto checkCycle2 = _runOpCode(_commandTable[_currentOpCode].opCode);
+        if (checkCycle1 && checkCycle2) {
             _cycles++;
         }
 
@@ -586,7 +624,7 @@ void Cpu::_setStatusFlag(StatusBit statusBit, bool value)
     }
 }
 
-bool Cpu::_getCurrentData()
+uint8_t Cpu::_getCurrentData()
 {
 	if (!(_commandTable[_currentOpCode].addressMode == AddressMode::IMP)) {
 		_bus->read(_currentAddress, _currentData);
@@ -873,7 +911,12 @@ bool Cpu::_codeSEI()
 // No Operation
 bool Cpu::_codeNOP()
 {
-    // Some OpCode's requires additional cycle 
+    // Some NOP's consume more bytes
+    if (_commandTable[_currentOpCode].opCodeLength > 1) {
+		registers.programCounter += _commandTable[_currentOpCode].opCodeLength - 1;
+    }
+
+    // Some OpCode's requires additional cycle
 	switch (_currentOpCode) {
 	case 0x1C:
 	case 0x3C:
@@ -1082,7 +1125,7 @@ bool Cpu::_codeLSR()
     auto data = _getCurrentData();
 	auto result = static_cast<uint16_t>(data) >> 1;
 
-    _setStatusFlag(StatusBit::bitCarry, result & 0x0001);
+    _setStatusFlag(StatusBit::bitCarry, data & 0x0001);
     _setStatusFlag(StatusBit::bitZero, !(result & 0x00FF));
     _setStatusFlag(StatusBit::bitNegative, result & 0x0080);
 
@@ -1131,7 +1174,7 @@ bool Cpu::_codeROR()
     auto data = _getCurrentData();
 	auto result = (static_cast<uint16_t>(registers.statusFlag.carry) << 7) | static_cast<uint16_t>(data >> 1);
 
-    _setStatusFlag(StatusBit::bitCarry, result & 0x0001);
+    _setStatusFlag(StatusBit::bitCarry, data & 0x0001);
     _setStatusFlag(StatusBit::bitZero, !(result & 0x00FF));
     _setStatusFlag(StatusBit::bitNegative, result & 0x0080);
 
@@ -1428,7 +1471,7 @@ bool Cpu::_codePLP()
 
 	registers.stackPointer++;
     _bus->read(stackBaseAddress + registers.stackPointer, data);
-    registers.status = data;
+    registers.status = data & 0xEF;
     _setStatusFlag(StatusBit::bitUnused, true);
 
 	return false;

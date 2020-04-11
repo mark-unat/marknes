@@ -1,12 +1,15 @@
+#include <string.h>
 #include <algorithm>
 
 #include "Ppu.hpp"
+#include "PpuBus.hpp"
 
 constexpr uint8_t resetStackOffset = 0xFD;
 constexpr uint16_t stackBaseAddress = 0x0100;
 constexpr uint16_t nonMaskableInterruptAddress = 0xFFFA;
 constexpr uint16_t resetInterruptAddress = 0xFFFC;
 constexpr uint16_t breakInterruptAddress = 0xFFFE;
+constexpr auto ppuBaseAddress = 0x2000;
 
 Ppu::Ppu(std::shared_ptr<IDevice> bus,
     std::shared_ptr<Cartridge> cartridge)
@@ -36,14 +39,21 @@ Ppu::~Ppu()
 {
 }
 
-bool Ppu::read(uint16_t address, uint8_t &/*data*/)
+bool Ppu::read(uint16_t address, uint8_t &data)
 {
-    switch (static_cast<PpuRegisterAddress>(address)) {
+    auto localAddress = address - ppuBaseAddress;
+    // PPU Address mirrored every 8 bytes
+    localAddress = localAddress & 0x7;
+
+    switch (static_cast<PpuRegisterAddress>(localAddress)) {
     case PpuRegisterAddress::Control:
         break;
     case PpuRegisterAddress::Mask:
         break;
     case PpuRegisterAddress::Status:
+        data = (registers.status & 0xE0) | (vramCachedData & 0x1F);
+        registers.statusFlag.verticalBlankFlag = false;
+        vramAddressLatch = false;
         break;
     case PpuRegisterAddress::OAMAddress:
         break;
@@ -52,8 +62,24 @@ bool Ppu::read(uint16_t address, uint8_t &/*data*/)
     case PpuRegisterAddress::Scroll:
         break;
     case PpuRegisterAddress::VRAMAddress:
+        // Nothing to read from here
         break;
     case PpuRegisterAddress::VRAMData:
+        _bus->read(registers.vramAddress, registers.vramData);
+        if (registers.vramAddress >= paletteTableBaseAddress) {
+            // Only the palette address range would get the data immediately,
+            // thus no read delay by one cycle.
+            data = registers.vramData;
+        } else {
+            // Return previous data here to delay read by one cycle, since
+            // writing to VRAM address requires two cycles because it's a 16-bit
+            // address.
+            data = vramCachedData;
+            vramCachedData = registers.vramData;
+        }
+
+        // Auto increment VRAM address when reading from data
+        registers.vramAddress++;
         break;
     default:
         break;
@@ -62,12 +88,18 @@ bool Ppu::read(uint16_t address, uint8_t &/*data*/)
     return true;
 }
 
-bool Ppu::write(uint16_t address, uint8_t /*data*/)
+bool Ppu::write(uint16_t address, uint8_t data)
 {
-    switch (static_cast<PpuRegisterAddress>(address)) {
+    auto localAddress = address - ppuBaseAddress;
+    // PPU Address mirrored every 8 bytes
+    localAddress = localAddress & 0x7;
+
+    switch (static_cast<PpuRegisterAddress>(localAddress)) {
     case PpuRegisterAddress::Control:
+        registers.control = data;
         break;
     case PpuRegisterAddress::Mask:
+        registers.mask = data;
         break;
     case PpuRegisterAddress::Status:
         break;
@@ -78,8 +110,23 @@ bool Ppu::write(uint16_t address, uint8_t /*data*/)
     case PpuRegisterAddress::Scroll:
         break;
     case PpuRegisterAddress::VRAMAddress:
+        {
+            auto word = static_cast<uint16_t>(data);
+            if (!vramAddressLatch) {
+                // High byte of VRAM Address
+                registers.vramAddress = (registers.vramAddress & 0x00FF) | (word << 8);
+            } else {
+                // Low byte of VRAM Address
+                registers.vramAddress = (registers.vramAddress & 0xFF00) | (word);
+            }
+            vramAddressLatch = !vramAddressLatch;
+        }
         break;
     case PpuRegisterAddress::VRAMData:
+        _bus->write(registers.vramAddress, data);
+
+        // Auto increment VRAM address when writing to data
+        registers.vramAddress++;
         break;
     default:
         break;
@@ -91,6 +138,14 @@ bool Ppu::write(uint16_t address, uint8_t /*data*/)
 // Execute one clock cycle
 void Ppu::tick()
 {
+    if (_scanLine == 241 && _cycles == 1)
+    {
+        registers.statusFlag.verticalBlankFlag = true;
+        if (registers.controlFlag.NMIEnabledOnVBlank) {
+            _vBlank = true;
+        }
+    }
+
 	_cycles++;
 	if (_cycles >= 341)
 	{
@@ -104,15 +159,95 @@ void Ppu::tick()
 	}
 }
 
+void Ppu::reset()
+{
+    memset(&registers, 0, sizeof(PpuRegister));
+}
+
+bool Ppu::isVBlankTriggered()
+{
+    auto vBlank{_vBlank};
+
+    // Auto-reset once we detect that it's triggered
+    if (_vBlank) {
+        _vBlank = false;
+    }
+    return vBlank;
+}
+
+bool Ppu::isFrameDone()
+{
+    auto frameDone{_frameDone};
+
+    // Auto-reset once we detect that it's done
+    if (_frameDone) {
+        _frameDone = false;
+    }
+    return frameDone;
+}
+
 uint8_t* Ppu::getFrameBuffer()
 {
     // Temporary static noise
-    for (uint32_t pixel = 0; pixel < PPU_FRAME_WIDTH * PPU_FRAME_HEIGHT * 3;) {
+    for (uint32_t pixel = 0; pixel < PPU_FRAME_BUFFER_RGB_SIZE;) {
         uint8_t value = rand() % 255;
         _frameBufferRGB[pixel++] = value;
         _frameBufferRGB[pixel++] = value;
         _frameBufferRGB[pixel++] = value;
     }
 
+    /*
+    // Getting PatternTable #0
+    Pattern pattern = getPattern(0, 1);
+    uint16_t pixel = 0;
+    for (int a = 0; a < 16; a++) {
+        for (int j = 0; j < 8; j++) {
+            for (int i = a * 16; i < (a+1)*16; i++) {
+                for (int k = j * 8; k < (j+1)*8; k++) {
+                    Pixel myPixel = pattern.tile[i].pixel[k];
+                    _frameBufferRGB[pixel++] = myPixel.red;
+                    _frameBufferRGB[pixel++] = myPixel.green;
+                    _frameBufferRGB[pixel++] = myPixel.blue;
+                }
+            }
+        }
+    }*/
+
     return _frameBufferRGB;
+}
+
+Pattern Ppu::getPattern(uint8_t type, uint8_t paletteIndex)
+{
+    auto patternAddress = uint16_t{0x0000};
+    if (type == 0) {
+        patternAddress = patternTableSpriteAddress;
+    } else {
+        patternAddress = patternTableBackgroundAddress;
+    }
+
+    // Let's access this pattern: 16x16 tiles
+    for (uint16_t tile = 0; tile < 16 * 16; tile++) {
+        // Let's access this tile: 8x8 pixels
+        for (uint8_t x = 0; x < 8; x++) {
+            auto lowByte = uint8_t{0x00};
+            auto highByte = uint8_t{0x00};
+            _bus->read(patternAddress + tile * 16 + x + 0, lowByte);
+            _bus->read(patternAddress + tile * 16 + x + 8, highByte);
+
+            // The least significant bit goes to the last pixel index, that's
+            // why we count from 7 to 0 index
+            for (uint8_t y = 8; y > 0; y--) {
+                auto pixelIndex = (highByte & 0x01) + (lowByte & 0x01);
+                auto paletteByte = uint8_t{0x00};
+                highByte = highByte >> 1;
+                lowByte = lowByte >> 1;
+
+                 _bus->read(paletteTableBaseAddress + paletteIndex * 4 + pixelIndex, paletteByte);
+
+                _patternPixelTable[type].tile[tile].pixel[x * 8 + (y - 1)] = _palettePixelTable[paletteByte];
+            }
+        }
+    }
+
+    return _patternPixelTable[type];
 }

@@ -6,7 +6,6 @@ cc_binary {
         "src/Memory2KB.cpp",
         "src/CpuBus.cpp",
         "src/NameTable.cpp",
-        "src/PatternTable.cpp",
         "src/PaletteTable.cpp",
         "src/PpuBus.cpp",
         "src/Mapper000.cpp",

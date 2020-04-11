@@ -3,10 +3,9 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <memory>
 
 #include "IDevice.hpp"
-#include "Ppu.hpp"
-#include "Cartridge.hpp"
 
 enum class AddressMode {
 	IMP,
@@ -118,24 +117,24 @@ typedef struct CpuRegister {
 } CpuRegister;
 
 typedef struct Command {
+    uint8_t opCodeId;
     OpCode opCode;
+    uint8_t opCodeLength;
     AddressMode addressMode;
     std::string name;
-    uint8_t cycles = 0;
+    uint8_t cycles;
 } Command;
 
 class Cpu {
 public:
-	Cpu(std::shared_ptr<IDevice> bus,
-        std::shared_ptr<Ppu> ppu,
-        std::shared_ptr<Cartridge> cartridge);
+	Cpu(std::shared_ptr<IDevice> bus);
 	~Cpu();
 
 	// CPU registers
     CpuRegister registers;
 
 	// CPU interrupts
-	void resetInterrupt();
+	void reset();
 	void interruptRequest();
 	void nonMaskableInterruptRequest();
 
@@ -152,18 +151,13 @@ private:
 	// Bus device attached to this Cpu
     std::shared_ptr<IDevice> _bus;
 
-    // PPU Interface
-    std::shared_ptr<Ppu> _ppu;
-
-    // NES Catridge
-    std::shared_ptr<Cartridge> _cartridge;
-
 	std::vector<Command> _commandTable;
 
+    void _disassemble();
     bool _runAddressMode(AddressMode addressMode);
     bool _runOpCode(OpCode opCode);
     void _setStatusFlag(StatusBit statusBit, bool value);
-    bool _getCurrentData();
+    uint8_t _getCurrentData();
 
 	// Address Mode implementations
 	bool _modeIMP();

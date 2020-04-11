@@ -6,7 +6,7 @@
 #include <array>
 
 #include "IDevice.hpp"
-#include "ITable.hpp"
+#include "IMemory.hpp"
 #include "Cartridge.hpp"
 
 #define PPU_FRAME_WIDTH 256
@@ -69,7 +69,7 @@ typedef struct PpuRegister {
     uint8_t oamAddress;
     uint8_t oamData;
     uint8_t scroll;
-    uint8_t vramAddress;
+    uint16_t vramAddress;
     uint8_t vramData;
 } PpuRegister;
 
@@ -78,6 +78,14 @@ typedef struct Pixel {
     uint8_t green;
     uint8_t blue;
 } Pixel;
+
+typedef struct Tile {
+    Pixel pixel[8 * 8];
+} Tile;
+
+typedef struct Pattern {
+    Tile tile[16 * 16];
+} Pattern;
 
 class Ppu {
 public:
@@ -90,22 +98,25 @@ public:
 
     // Execute one clock cycle
 	void tick();
+	void reset();
 
     // Get Frame Buffer
     uint8_t* getFrameBuffer();
+    Pattern getPattern(uint8_t type, uint8_t paletteIndex);
+    bool isFrameDone();
+    bool isVBlankTriggered();
 
     // PPU registers
     PpuRegister registers;
 
+    bool vramAddressLatch{false};
+    uint8_t vramCachedData{0x00};
+
 private:
 	uint16_t _cycles = 0;
 	uint16_t _scanLine = 0;
-	bool _frameDone = 0;
-
-    // Tables
-    std::shared_ptr<ITable> _nameTable;
-    std::shared_ptr<ITable> _patternTable;
-    std::shared_ptr<ITable> _paletteTable;
+	bool _frameDone{false};
+    bool _vBlank{false};
 
 	// Bus device attached to this Ppu
     std::shared_ptr<IDevice> _bus;
@@ -115,4 +126,5 @@ private:
 
     uint8_t _frameBufferRGB[PPU_FRAME_BUFFER_RGB_SIZE];
     std::vector<Pixel> _palettePixelTable;
+    std::array<Pattern, 2> _patternPixelTable;
 };

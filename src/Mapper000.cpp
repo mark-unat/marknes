@@ -1,4 +1,5 @@
 #include "Mapper000.hpp"
+#include <stdio.h>
 
 Mapper000::Mapper000(uint8_t prgRomChunks, uint8_t chrRomChunks)
 : _prgRomChunks{prgRomChunks}

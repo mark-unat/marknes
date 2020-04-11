@@ -1,33 +1,40 @@
 #include "PaletteTable.hpp"
 
-constexpr auto rowSize = 32;
-constexpr auto columnSize = 1;
+constexpr auto size32 = 32;
+constexpr auto paletteTableBaseAddress = 0x3F00;
 
 PaletteTable::PaletteTable()
 {
-    // Allocate new table
-    _table = std::make_unique<std::unique_ptr<uint8_t[]>[]>(rowSize);
-    for (int i = 0; i < rowSize; i++) {
-        _table[i] = std::make_unique<uint8_t[]>(columnSize);
-    }
+    // Allocate new memory
+    _memory = std::make_unique<uint8_t[]>(size32);
 
-    // Zero-out table contents
-    for (int i = 0; i < rowSize; i++) {
-        for (int j = 0; j < columnSize; j++) {
-            _table[i][j] = 0x00;
-        }
+    // Zero-out memory contents
+    for (uint16_t i = 0; i < size32; i++) {
+        _memory[i] = 0x00;
     }
 }
 
-bool PaletteTable::read(uint16_t /*address*/, uint8_t& /*data*/)
+bool PaletteTable::read(uint16_t address, uint8_t& data)
 {
-    // Check if address is within this Table range
+    auto localAddress = address - paletteTableBaseAddress;
+    localAddress = localAddress % size32;
+    if ((localAddress >= 0) && (localAddress < size32)) {
+        data = _memory[localAddress];
+        return true;
+    }
+
 	return false;
 }
 
-bool PaletteTable::write(uint16_t /*address*/, uint8_t /*data*/)
+bool PaletteTable::write(uint16_t address, uint8_t data)
 {
-    // Check if address is within this Table range
-    return false;
+    auto localAddress = address - paletteTableBaseAddress;
+    localAddress = localAddress % size32;
+    if ((localAddress >= 0) && (localAddress < size32)) {
+        _memory[localAddress] = data;
+        return true;
+    }
+
+	return false;
 }
 

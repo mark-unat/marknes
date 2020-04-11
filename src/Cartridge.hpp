@@ -55,6 +55,7 @@ public:
 	~Cartridge();
 
     bool isValid() const { return _isValid; }
+    MirroringMode getMirroringMode() const { return _mirroringMode; }
 	bool readPrgRom(uint16_t address, uint8_t &data);
 	bool writePrgRom(uint16_t address, uint8_t data);
 	bool readChrRom(uint16_t address, uint8_t &data);
@@ -64,8 +65,8 @@ private:
     std::string _fileName;
     NesHeader _nesHeader;
 	uint8_t _mapperID{0};
-	uint8_t _prgRomSize{0};
-	uint8_t _chrRomSize{0};
+	uint16_t _prgRomSize{0};
+	uint16_t _chrRomSize{0};
 	bool _isValid{false};
     MirroringMode _mirroringMode{MirroringMode::Horizontal};
 	std::vector<uint8_t> _prgRom;
