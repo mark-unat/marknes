@@ -16,7 +16,7 @@ Ppu::Ppu(std::shared_ptr<IDevice> bus, std::shared_ptr<Cartridge> cartridge)
 , _cartridge{cartridge}
 {
     // NTSC Palette Table: wiki.nesdev.com/w/index.php/PPU_palettes
-    _palettePixelTable = {
+    _paletteTablePixel = {
         {0x54, 0x54, 0x54}, {0x00, 0x1E, 0x74}, {0x08, 0x10, 0x90}, {0x30, 0x00, 0x88}, {0x44, 0x00, 0x64},
         {0x5C, 0x00, 0x30}, {0x54, 0x04, 0x00}, {0x3C, 0x18, 0x00}, {0x20, 0x2A, 0x00}, {0x08, 0x3A, 0x00},
         {0x00, 0x40, 0x00}, {0x00, 0x3C, 0x00}, {0x00, 0x32, 0x3C}, {0x00, 0x00, 0x00}, {0x98, 0x96, 0x98},
@@ -74,7 +74,12 @@ bool Ppu::read(uint16_t address, uint8_t& data)
         }
 
         // Auto increment VRAM address when reading from data
-        registers.vramAddress++;
+        // The increment step depends on the PPU control register
+        if (registers.controlFlag.vramAddressIncrement) {
+            registers.vramAddress += 32;
+        } else {
+            registers.vramAddress++;
+        }
         break;
     default:
         break;
@@ -119,7 +124,12 @@ bool Ppu::write(uint16_t address, uint8_t data)
         _bus->write(registers.vramAddress, data);
 
         // Auto increment VRAM address when writing to data
-        registers.vramAddress++;
+        // The increment step depends on the PPU control register
+        if (registers.controlFlag.vramAddressIncrement) {
+            registers.vramAddress += 32;
+        } else {
+            registers.vramAddress++;
+        }
         break;
     default:
         break;
@@ -179,16 +189,16 @@ bool Ppu::isFrameDone()
 uint8_t* Ppu::getFrameBuffer()
 {
     // Temporary static noise
-    for (uint32_t pixel = 0; pixel < PPU_FRAME_BUFFER_RGB_SIZE;) {
+    /*for (uint32_t pixel = 0; pixel < PPU_FRAME_BUFFER_RGB_SIZE;) {
         uint8_t value = rand() % 255;
         _frameBufferRGB[pixel++] = value;
         _frameBufferRGB[pixel++] = value;
         _frameBufferRGB[pixel++] = value;
-    }
+    }*/
 
     /*
     // Getting PatternTable #0
-    Pattern pattern = getPattern(0, 1);
+    auto pattern = getPatternTableTile(0, 1);
     uint16_t pixel = 0;
     for (int a = 0; a < 16; a++) {
         for (int j = 0; j < 8; j++) {
@@ -203,10 +213,54 @@ uint8_t* Ppu::getFrameBuffer()
         }
     }*/
 
+    // Getting NameTable #0
+    auto nameTable = getNameTableTile(0);
+    uint32_t pixel = 0;
+    for (int a = 0; a < 30; a++) {
+        for (int j = 0; j < 8; j++) {
+            for (int i = a * 32; i < (a + 1) * 32; i++) {
+                for (int k = j * 8; k < (j + 1) * 8; k++) {
+                    Pixel myPixel = nameTable.tile[i].pixel[k];
+                    _frameBufferRGB[pixel++] = myPixel.red;
+                    _frameBufferRGB[pixel++] = myPixel.green;
+                    _frameBufferRGB[pixel++] = myPixel.blue;
+                }
+            }
+        }
+    }
+
     return _frameBufferRGB;
 }
 
-Pattern Ppu::getPattern(uint8_t type, uint8_t paletteIndex)
+NameTableTile Ppu::getNameTableTile(uint8_t index)
+{
+    auto nameTableAddress = uint16_t{0x0000};
+    if (index == 0) {
+        nameTableAddress = nameTable1StartAddress;
+    } else if (index == 1) {
+        nameTableAddress = nameTable2StartAddress;
+    } else if (index == 2) {
+        nameTableAddress = nameTable3StartAddress;
+    } else if (index == 3) {
+        nameTableAddress = nameTable4StartAddress;
+    }
+
+    // Temporarily get pattern #0 using palette #0
+    auto pattern = getPatternTableTile(1, 1);
+
+    // Let's access the name table: 32x30 tiles
+    for (uint16_t tile = 0; tile < 32 * 30; tile++) {
+        auto patternIndex = uint8_t{0x00};
+        _bus->read(nameTableAddress + tile, patternIndex);
+
+        // Copy this Pattern to our Name Table
+        _nameTablePixel[index].tile[tile] = pattern.tile[patternIndex];
+    }
+
+    return _nameTablePixel[index];
+}
+
+PatternTableTile Ppu::getPatternTableTile(uint8_t type, uint8_t paletteIndex)
 {
     auto patternAddress = uint16_t{0x0000};
     if (type == 0) {
@@ -234,10 +288,10 @@ Pattern Ppu::getPattern(uint8_t type, uint8_t paletteIndex)
 
                 _bus->read(paletteTableBaseAddress + paletteIndex * 4 + pixelIndex, paletteByte);
 
-                _patternPixelTable[type].tile[tile].pixel[x * 8 + (y - 1)] = _palettePixelTable[paletteByte];
+                _patternTablePixel[type].tile[tile].pixel[x * 8 + (y - 1)] = _paletteTablePixel[paletteByte];
             }
         }
     }
 
-    return _patternPixelTable[type];
+    return _patternTablePixel[type];
 }

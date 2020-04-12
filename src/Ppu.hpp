@@ -75,7 +75,6 @@ typedef struct PpuRegister {
 
 typedef struct Pixel {
     uint8_t red;
-    ;
     uint8_t green;
     uint8_t blue;
 } Pixel;
@@ -84,9 +83,13 @@ typedef struct Tile {
     Pixel pixel[8 * 8];
 } Tile;
 
-typedef struct Pattern {
+typedef struct PatternTableTile {
     Tile tile[16 * 16];
-} Pattern;
+} PatternTableTile;
+
+typedef struct NameTableTile {
+    Tile tile[32 * 30];
+} NameTableTile;
 
 class Ppu {
 public:
@@ -102,7 +105,8 @@ public:
 
     // Get Frame Buffer
     uint8_t* getFrameBuffer();
-    Pattern getPattern(uint8_t type, uint8_t paletteIndex);
+    PatternTableTile getPatternTableTile(uint8_t type, uint8_t paletteIndex);
+    NameTableTile getNameTableTile(uint8_t index);
     bool isFrameDone();
     bool isVBlankTriggered();
 
@@ -125,6 +129,7 @@ private:
     std::shared_ptr<Cartridge> _cartridge;
 
     uint8_t _frameBufferRGB[PPU_FRAME_BUFFER_RGB_SIZE];
-    std::vector<Pixel> _palettePixelTable;
-    std::array<Pattern, 2> _patternPixelTable;
+    std::vector<Pixel> _paletteTablePixel;
+    std::array<PatternTableTile, 2> _patternTablePixel;
+    std::array<NameTableTile, 4> _nameTablePixel;
 };
