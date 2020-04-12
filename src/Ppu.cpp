@@ -46,9 +46,12 @@ bool Ppu::read(uint16_t address, uint8_t& data)
     case PpuRegisterAddress::Mask:
         break;
     case PpuRegisterAddress::Status:
-        data = (registers.status & 0xE0) | (vramCachedData & 0x1F);
+        data = (registers.status & 0xE0) | (registers.tempVramData & 0x1F);
         registers.statusFlag.verticalBlankFlag = false;
-        vramAddressLatch = false;
+
+        // VRAM Implementation:
+        //     w:                  = 0
+        registers.vramAddressLatch = false;
         break;
     case PpuRegisterAddress::OAMAddress:
         break;
@@ -60,25 +63,25 @@ bool Ppu::read(uint16_t address, uint8_t& data)
         // Nothing to read from here
         break;
     case PpuRegisterAddress::VRAMData:
-        _bus->read(registers.vramAddress, registers.vramData);
-        if (registers.vramAddress >= paletteTableBaseAddress) {
+        _bus->read(registers.currVramAddress, registers.currVramData);
+        if (registers.currVramAddress >= paletteTableBaseAddress) {
             // Only the palette address range would get the data immediately,
             // thus no read delay by one cycle.
-            data = registers.vramData;
+            data = registers.currVramData;
         } else {
             // Return previous data here to delay read by one cycle, since
             // writing to VRAM address requires two cycles because it's a 16-bit
             // address.
-            data = vramCachedData;
-            vramCachedData = registers.vramData;
+            data = registers.tempVramData;
+            registers.tempVramData = registers.currVramData;
         }
 
         // Auto increment VRAM address when reading from data
         // The increment step depends on the PPU control register
         if (registers.controlFlag.vramAddressIncrement) {
-            registers.vramAddress += 32;
+            registers.currVramAddress += 32;
         } else {
-            registers.vramAddress++;
+            registers.currVramAddress++;
         }
         break;
     default:
@@ -97,6 +100,10 @@ bool Ppu::write(uint16_t address, uint8_t data)
     switch (static_cast<PpuRegisterAddress>(localAddress)) {
     case PpuRegisterAddress::Control:
         registers.control = data;
+
+        // VRAM Implementation:
+        //     t: ...BA.. ........ = d: ......BA
+        registers.tempVramFlag.nameTableAddress = registers.controlFlag.nameTableAddress;
         break;
     case PpuRegisterAddress::Mask:
         registers.mask = data;
@@ -108,27 +115,58 @@ bool Ppu::write(uint16_t address, uint8_t data)
     case PpuRegisterAddress::OAMData:
         break;
     case PpuRegisterAddress::Scroll:
+        if (!registers.vramAddressLatch) {
+            // Scroll X
+            // VRAM Implementation:
+            //     t: ....... ...HGFED = d: HGFED...
+            //     x:              CBA = d: .....CBA
+            //     w:                  = 1
+            registers.tempVramFlag.coarseXScroll = data >> 3;
+            registers.fineXScroll = data & 0x07;
+        } else {
+            // Scroll Y
+            // VRAM Implementation:
+            //     t: CBA..HG FED..... = d: HGFEDCBA
+            //     w:                  = 0
+            registers.tempVramFlag.coarseYScroll = data >> 3;
+            registers.tempVramFlag.fineYScroll = data & 0x07;
+        }
+        registers.vramAddressLatch = !registers.vramAddressLatch;
         break;
     case PpuRegisterAddress::VRAMAddress: {
         auto word = static_cast<uint16_t>(data);
-        if (!vramAddressLatch) {
-            // High byte of VRAM Address
-            registers.vramAddress = (registers.vramAddress & 0x00FF) | (word << 8);
+        if (!registers.vramAddressLatch) {
+            // High byte of VRAM Address, but we need to zero out the upper
+            // 2-bits of the byte
+            // VRAM Implementation:
+            //     t: .FEDCBA ........ = d: ..FEDCBA
+            //     t: X...... ........ = 0
+            //     w:                  = 1
+            word = word & 0x003F;
+            registers.tempVramAddress = (registers.tempVramAddress & 0x00FF) | (word << 8);
+            //
         } else {
             // Low byte of VRAM Address
-            registers.vramAddress = (registers.vramAddress & 0xFF00) | (word);
+            // VRAM Implementation:
+            //     t: ....... HGFEDCBA = d: HGFEDCBA
+            //     v:                  = t
+            //     w:                  = 0
+            registers.tempVramAddress = (registers.tempVramAddress & 0xFF00) | (word);
+
+            // Copy temporary VRAM to current VRAM
+            registers.currVramAddress = registers.tempVramAddress;
         }
-        vramAddressLatch = !vramAddressLatch;
+        registers.vramAddressLatch = !registers.vramAddressLatch;
     } break;
     case PpuRegisterAddress::VRAMData:
-        _bus->write(registers.vramAddress, data);
+        _bus->write(registers.currVramAddress, data);
 
         // Auto increment VRAM address when writing to data
         // The increment step depends on the PPU control register
         if (registers.controlFlag.vramAddressIncrement) {
-            registers.vramAddress += 32;
+            registers.currVramAddress += 32;
         } else {
-            registers.vramAddress++;
+            registers.currVramAddress++;
         }
         break;
     default:

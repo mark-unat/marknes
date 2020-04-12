@@ -53,6 +53,14 @@ typedef struct PpuStatusFlags {
     bool verticalBlankFlag : 1;
 } PpuStatusFlags;
 
+typedef struct PpuVramFlags {
+    uint8_t coarseXScroll : 5;
+    uint8_t coarseYScroll : 5;
+    uint8_t nameTableAddress : 2;
+    uint8_t fineYScroll : 3;
+    uint8_t unused : 1;
+} PpuVramFlags;
+
 typedef struct PpuRegister {
     union {
         uint8_t control;
@@ -69,8 +77,18 @@ typedef struct PpuRegister {
     uint8_t oamAddress;
     uint8_t oamData;
     uint8_t scroll;
-    uint16_t vramAddress;
-    uint8_t vramData;
+    union {
+        uint16_t currVramAddress;
+        PpuVramFlags currVramFlag;
+    };
+    union {
+        uint16_t tempVramAddress;
+        PpuVramFlags tempVramFlag;
+    };
+    uint8_t fineXScroll;
+    bool vramAddressLatch;
+    uint8_t currVramData;
+    uint8_t tempVramData;
 } PpuRegister;
 
 typedef struct Pixel {
@@ -112,9 +130,6 @@ public:
 
     // PPU registers
     PpuRegister registers;
-
-    bool vramAddressLatch{false};
-    uint8_t vramCachedData{0x00};
 
 private:
     uint16_t _cycles = 0;
