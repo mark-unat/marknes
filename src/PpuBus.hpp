@@ -22,6 +22,12 @@ constexpr auto nameTable4StartAddress = 0x2C00;
 constexpr auto nameTable4EndAddress = 0x2FFF;
 constexpr auto nameTableEndAddress = 0x3EFF;
 
+constexpr auto attributeBaseAddress = 0x23C0;
+constexpr auto attribute1StartAddress = 0x23C0;
+constexpr auto attribute2StartAddress = 0x27C0;
+constexpr auto attribute3StartAddress = 0x2BC0;
+constexpr auto attribute4StartAddress = 0x2FC0;
+
 constexpr auto paletteTableBaseAddress = 0x3F00;
 constexpr auto paletteTableBG1Address = 0x3F10;
 constexpr auto paletteTableBG2Address = 0x3F14;

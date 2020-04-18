@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdio.h>
 #include <functional>
 #include <vector>
 #include <string>
@@ -26,7 +27,8 @@ enum class PpuRegisterAddress {
 };
 
 typedef struct ControlFlags {
-    uint8_t nameTableAddress : 2;
+    bool nameTableXAddress : 1;
+    bool nameTableYAddress : 1;
     bool vramAddressIncrement : 1;
     bool spritePatternTable : 1;
     bool backgroundPatternTable : 1;
@@ -54,11 +56,12 @@ typedef struct PpuStatusFlags {
 } PpuStatusFlags;
 
 typedef struct PpuVramFlags {
-    uint8_t coarseXScroll : 5;
-    uint8_t coarseYScroll : 5;
-    uint8_t nameTableAddress : 2;
-    uint8_t fineYScroll : 3;
-    uint8_t unused : 1;
+    uint16_t coarseXScroll : 5;
+    uint16_t coarseYScroll : 5;
+    uint16_t nameTableXAddress : 1;
+    uint16_t nameTableYAddress : 1;
+    uint16_t fineYScroll : 3;
+    uint16_t unused : 1;
 } PpuVramFlags;
 
 typedef struct PpuRegister {
@@ -123,8 +126,6 @@ public:
 
     // Get Frame Buffer
     uint8_t* getFrameBuffer();
-    PatternTableTile getPatternTableTile(uint8_t type, uint8_t paletteIndex);
-    NameTableTile getNameTableTile(uint8_t index);
     bool isFrameDone();
     bool isVBlankTriggered();
 
@@ -132,10 +133,38 @@ public:
     PpuRegister registers;
 
 private:
+    PatternTableTile _getPatternTableTile(uint8_t type, uint8_t paletteIndex);
+    Pixel _getPixelPaletteTable(uint8_t pixelIndex, uint8_t paletteIndex);
+    NameTableTile _getNameTableTile(uint8_t index);
+
+    void _incrementVramHorizontalInfo();
+    void _incrementVramVerticalInfo();
+    void _updateVramHorizontalInfo();
+    void _updateVramVerticalInfo();
+    uint8_t _getNextNameTableByte();
+    uint8_t _getNextAttributeByte();
+    uint8_t _getBackgroundTileByte(bool isMSB);
+    void _loadShiftRegisters();
+    void _moveShiftRegisters();
+    void _getIndexFromShiftRegisters(uint8_t& pixelIndex, uint8_t& paletteIndex);
+
     uint16_t _cycles = 0;
     uint16_t _scanLine = 0;
+    uint32_t _bufferPixelIndex = 0;
     bool _frameDone{false};
     bool _vBlank{false};
+
+    // PPU background rendering
+    uint8_t nextNameTableByte;
+    uint8_t nextAttributeByte;
+    uint8_t nextLowBGTileByte;
+    uint8_t nextHighBGTileByte;
+
+    // Shift registers
+    uint16_t shiftRegisterLowBGTile;
+    uint16_t shiftRegisterHighBGTile;
+    uint16_t shiftRegisterLowAttribute;
+    uint16_t shiftRegisterHighAttribute;
 
     // Bus device attached to this Ppu
     std::shared_ptr<IDevice> _bus;
