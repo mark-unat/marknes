@@ -11,6 +11,7 @@ SRCS := \
 	src/Cpu.cpp \
 	src/Mapper000.cpp \
 	src/Memory2KB.cpp \
+	src/Controller.cpp \
 	src/NameTable.cpp \
 	src/PaletteTable.cpp \
 	src/PpuBus.cpp \

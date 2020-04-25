@@ -10,7 +10,7 @@ void Nes::load(std::string fileName)
 
     _cpuRam = std::make_shared<Memory2KB>();
     //_apu = std::make_shared<Apu>();
-    //_control = std::make_shared<Control>();
+    _controller = std::make_shared<Controller>();
 
     _nameTable = std::make_shared<NameTable>();
     _paletteTable = std::make_shared<PaletteTable>();
@@ -19,7 +19,7 @@ void Nes::load(std::string fileName)
     _ppuBus = std::make_shared<PpuBus>(_nameTable, _paletteTable, _cartridge);
     _ppu = std::make_shared<Ppu>(_ppuBus, _cartridge);
 
-    _cpuBus = std::make_shared<CpuBus>(_cpuRam, _ppu, _cartridge /*, _apu, _control*/);
+    _cpuBus = std::make_shared<CpuBus>(_cpuRam, _ppu, _cartridge, _controller /*, _apu*/);
     _cpu = std::make_shared<Cpu>(_cpuBus);
 }
 
@@ -54,4 +54,9 @@ void Nes::reset()
 uint8_t* Nes::getFrameBuffer()
 {
     return _ppu->getFrameBuffer();
+}
+
+void Nes::setControllerKey(uint8_t id, NesButton button, bool state)
+{
+    _controller->setKey(id, static_cast<ControllerButton>(button), state);
 }

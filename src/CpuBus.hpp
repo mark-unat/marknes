@@ -13,12 +13,18 @@ constexpr auto memoryEndAddress = 0x1FFF;
 constexpr auto ppuBaseAddress = 0x2000;
 constexpr auto ppuEndAddress = 0x3FFF;
 
+constexpr auto controller1Address = 0x4016;
+constexpr auto controller2Address = 0x4017;
+
 constexpr auto cartridgeBaseAddress = 0x8000;
 constexpr auto cartridgeEndAddress = 0xFFFF;
 
 class CpuBus : public IDevice {
 public:
-    CpuBus(std::shared_ptr<IMemory> memory, std::shared_ptr<Ppu> ppu, std::shared_ptr<Cartridge> cartridge);
+    CpuBus(std::shared_ptr<IMemory> memory,
+            std::shared_ptr<Ppu> ppu,
+            std::shared_ptr<Cartridge> cartridge,
+            std::shared_ptr<IDevice> controller);
 
     /// @name Implementation IDevice
     /// @[
@@ -28,6 +34,9 @@ public:
 private:
     // Memory device attached to this Cpu Bus
     std::shared_ptr<IMemory> _memory;
+
+    // Controller attached to this Cpu Bus
+    std::shared_ptr<IDevice> _controller;
 
     // PPU Interface
     std::shared_ptr<Ppu> _ppu;

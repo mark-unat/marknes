@@ -6,6 +6,77 @@
 Nes nes;
 GLuint texture = 0;
 
+void mapKeysToController(uint8_t key, bool state)
+{
+    switch (key) {
+    // Controller #1
+    case 111:
+    case 79:
+        // 'o' keyboard mapped to 'A' controller button
+        nes.setControllerKey(0, NesButton::A, state);
+        break;
+    case 112:
+    case 80:
+        // 'p' keyboard mapped to 'B' controller button
+        nes.setControllerKey(0, NesButton::B, state);
+        break;
+    case 107:
+    case 75:
+        // 'k' keyboard mapped to 'Select' controller button
+        nes.setControllerKey(0, NesButton::Select, state);
+        break;
+    case 108:
+    case 76:
+        // 'l' keyboard mapped to 'Start' controller button
+        nes.setControllerKey(0, NesButton::Start, state);
+        break;
+    case 101:
+        // 'Up' keyboard mapped to 'Up' controller button
+        nes.setControllerKey(0, NesButton::Up, state);
+        break;
+    case 103:
+        // 'Down' keyboard mapped to 'Down' controller button
+        nes.setControllerKey(0, NesButton::Down, state);
+        break;
+    case 100:
+        // 'Left' keyboard mapped to 'Left' controller button
+        nes.setControllerKey(0, NesButton::Left, state);
+        break;
+    case 102:
+        // 'Right' keyboard mapped to 'Right' controller button
+        nes.setControllerKey(0, NesButton::Right, state);
+        break;
+    // Controller #2
+    // nes.setControllerKey(1, NesButton::A, state);
+    default:
+        break;
+    }
+}
+
+void readPressedKeys(unsigned char key, int x, int y)
+{
+    // Key pressed
+    mapKeysToController(static_cast<uint8_t>(key), true);
+}
+
+void readReleasedKeys(unsigned char key, int x, int y)
+{
+    // Key released
+    mapKeysToController(static_cast<uint8_t>(key), false);
+}
+
+void readPressedSpecialKeys(int key, int x, int y)
+{
+    // Key pressed
+    mapKeysToController(static_cast<uint8_t>(key), true);
+}
+
+void readReleasedSpecialKeys(int key, int x, int y)
+{
+    // Key released
+    mapKeysToController(static_cast<uint8_t>(key), false);
+}
+
 void renderFrame()
 {
     nes.renderFrame();
@@ -69,6 +140,10 @@ int main(int argc, char** argv)
     glutInitWindowSize(nes.getWidth(), nes.getHeight());
     glutInitWindowPosition(0, 0);
     glutCreateWindow(nes.getName());
+    glutKeyboardFunc(&readPressedKeys);
+    glutKeyboardUpFunc(&readReleasedKeys);
+    glutSpecialFunc(&readPressedSpecialKeys);
+    glutSpecialUpFunc(&readReleasedSpecialKeys);
     glutDisplayFunc(&renderFrame);
     glutIdleFunc(&renderFrame);
     glutMainLoop();
