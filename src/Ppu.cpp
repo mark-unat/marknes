@@ -60,6 +60,7 @@ bool Ppu::read(uint16_t address, uint8_t& data)
     case PpuRegisterAddress::OAMAddress:
         break;
     case PpuRegisterAddress::OAMData:
+        readOAMData(_oamAddress, data);
         break;
     case PpuRegisterAddress::Scroll:
         break;
@@ -116,8 +117,10 @@ bool Ppu::write(uint16_t address, uint8_t data)
     case PpuRegisterAddress::Status:
         break;
     case PpuRegisterAddress::OAMAddress:
+        _oamAddress = data;
         break;
     case PpuRegisterAddress::OAMData:
+        writeOAMData(_oamAddress, data);
         break;
     case PpuRegisterAddress::Scroll:
         if (!registers.vramAddressLatch) {
@@ -667,4 +670,16 @@ void Ppu::_getIndexFromShiftRegisters(uint8_t& pixelIndex, uint8_t& paletteIndex
         }
         paletteIndex = (highBit << 1) + lowBit;
     }
+}
+
+void Ppu::writeOAMData(uint8_t address, uint8_t data)
+{
+    uint8_t* OAMData = reinterpret_cast<uint8_t*>(_sprites);
+    OAMData[address] = data;
+}
+
+void Ppu::readOAMData(uint8_t address, uint8_t& data)
+{
+    uint8_t* OAMData = reinterpret_cast<uint8_t*>(_sprites);
+    data = OAMData[address];
 }

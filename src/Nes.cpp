@@ -20,7 +20,7 @@ void Nes::load(std::string fileName)
     _ppu = std::make_shared<Ppu>(_ppuBus, _cartridge);
 
     _cpuBus = std::make_shared<CpuBus>(_cpuRam, _ppu, _cartridge, _controller /*, _apu*/);
-    _cpu = std::make_shared<Cpu>(_cpuBus);
+    _cpu = std::make_shared<Cpu>(_cpuBus, _ppu);
 }
 
 void Nes::renderFrame()
@@ -31,11 +31,15 @@ void Nes::renderFrame()
 
         // PPU runs 3 times faster than CPU
         if (_counter % 3 == 0) {
+            auto isOddCycle = (_counter % 2 == 1);
+
             // One CPU cycle
-            _cpu->tick();
-            _counter = 0;
+            _cpu->tick(isOddCycle);
         }
         _counter++;
+        if (_counter >= 0xFF) {
+            _counter = 0;
+        }
 
         // Check if PPU need to send NMI to CPU
         if (_ppu->isVBlankTriggered()) {

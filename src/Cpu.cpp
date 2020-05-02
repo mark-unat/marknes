@@ -1,14 +1,15 @@
 #include "Cpu.hpp"
-#include "CpuBus.hpp"
 
 constexpr uint8_t resetStackOffset = 0xFD;
 constexpr uint16_t stackBaseAddress = 0x0100;
 constexpr uint16_t nonMaskableInterruptAddress = 0xFFFA;
 constexpr uint16_t resetInterruptAddress = 0xFFFC;
 constexpr uint16_t breakInterruptAddress = 0xFFFE;
+constexpr uint16_t oamDMAddress = 0x4014;
 
-Cpu::Cpu(std::shared_ptr<IDevice> bus)
+Cpu::Cpu(std::shared_ptr<IDevice> bus, std::shared_ptr<Ppu> ppu)
 : _bus{bus}
+, _ppu{ppu}
 {
     // Command Table
     _commandTable = {
@@ -151,9 +152,9 @@ void Cpu::reset()
     auto data = uint8_t{0x00};
 
     _currentAddress = resetInterruptAddress;
-    _bus->read(_currentAddress, data);
+    _read(_currentAddress, data);
     auto lowByte = static_cast<uint16_t>(data);
-    _bus->read(_currentAddress + 1, data);
+    _read(_currentAddress + 1, data);
     auto highByte = static_cast<uint16_t>(data);
 
     // Set it
@@ -175,6 +176,9 @@ void Cpu::reset()
 
     // Reset cycles
     _cycles = 0;
+
+    // Reset DMA information
+    memset(&_dma, 0, sizeof(DMA));
 }
 
 // Interrupt Request
@@ -182,23 +186,23 @@ void Cpu::interruptRequest()
 {
     // Check if interrupt was enabled
     if (!registers.statusFlag.disableInterrupt) {
-        _bus->write(stackBaseAddress + registers.stackPointer,
+        _write(stackBaseAddress + registers.stackPointer,
                     static_cast<uint8_t>((registers.programCounter >> 8) & 0x00FF));
         registers.stackPointer--;
-        _bus->write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
+        _write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
         registers.stackPointer--;
 
         _setStatusFlag(StatusBit::bitBreakCommand, false);
         _setStatusFlag(StatusBit::bitUnused, true);
         _setStatusFlag(StatusBit::bitDisableInterrupt, true);
-        _bus->write(stackBaseAddress + registers.stackPointer, registers.status);
+        _write(stackBaseAddress + registers.stackPointer, registers.status);
         registers.stackPointer--;
 
         _currentAddress = breakInterruptAddress;
         auto data = uint8_t{0x00};
-        _bus->read(_currentAddress, data);
+        _read(_currentAddress, data);
         auto lowByte = static_cast<uint16_t>(data);
-        _bus->read(_currentAddress + 1, data);
+        _read(_currentAddress + 1, data);
         auto highByte = static_cast<uint16_t>(data);
         registers.programCounter = (highByte << 8) | lowByte;
 
@@ -210,28 +214,107 @@ void Cpu::interruptRequest()
 // Non-Maskable Interrupt Request
 void Cpu::nonMaskableInterruptRequest()
 {
-    _bus->write(stackBaseAddress + registers.stackPointer,
+    _write(stackBaseAddress + registers.stackPointer,
                 static_cast<uint8_t>((registers.programCounter >> 8) & 0x00FF));
     registers.stackPointer--;
-    _bus->write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
+    _write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
     registers.stackPointer--;
 
     _setStatusFlag(StatusBit::bitBreakCommand, false);
     _setStatusFlag(StatusBit::bitUnused, true);
     _setStatusFlag(StatusBit::bitDisableInterrupt, true);
-    _bus->write(stackBaseAddress + registers.stackPointer, registers.status);
+    _write(stackBaseAddress + registers.stackPointer, registers.status);
     registers.stackPointer--;
 
     _currentAddress = nonMaskableInterruptAddress;
     auto data = uint8_t{0x00};
-    _bus->read(_currentAddress, data);
+    _read(_currentAddress, data);
     auto lowByte = static_cast<uint16_t>(data);
-    _bus->read(_currentAddress + 1, data);
+    _read(_currentAddress + 1, data);
     auto highByte = static_cast<uint16_t>(data);
     registers.programCounter = (highByte << 8) | lowByte;
 
     // Non-Maskable Interrupt Request cycles
     _cycles = 8;
+}
+
+// Execute one clock cycle
+void Cpu::tick(bool isOddCycle)
+{
+    if (_dma.mode) {
+        // Suspend CPU cycle when we are in DMA mode
+        if (!_dma.startTransfer) {
+            // Let's have 1 or 2 dummy cycle while waiting for writes to
+            // complete, before starting our 256 alternating 256 read/write
+            // cycles for the DMA transfer.
+            if (isOddCycle) {
+                // This is odd cycle, let's start the transfer on next cycle to
+                // be in the even cycle.
+                _dma.startTransfer = true;
+            }
+        } else {
+            if (!isOddCycle) {
+                _read(_dma.addressHigh << 8 | _dma.addressLow, _dma.data);
+            } else {
+                _ppu->writeOAMData(_dma.addressLow, _dma.data);
+                if (_dma.addressLow >= 0xFF) {
+                    // Done writing all 255 bytes, let's end our DMA Mode
+                    _dma.mode = false;
+                    _dma.startTransfer = false;
+                    _dma.addressHigh = 0x00;
+                    _dma.addressLow = 0x00;
+                } else {
+                    // Continue writing to the next address
+                    _dma.addressLow++;
+                }
+            }
+        }
+    } else {
+        // Normal running CPU cycles
+        if (_cycles == 0) {
+            // To enable ASM debugging only
+            //_disassemble();
+
+            // Read next OpCode
+            _read(registers.programCounter, _currentOpCode);
+            registers.programCounter++;
+
+            _setStatusFlag(StatusBit::bitUnused, true);
+
+            _cycles = _commandTable[_currentOpCode].cycles;
+
+            // Execute AddressMode and OpCode and add cycles if needed
+            auto checkCycle1 = _runAddressMode(_commandTable[_currentOpCode].addressMode);
+            auto checkCycle2 = _runOpCode(_commandTable[_currentOpCode].opCode);
+            if (checkCycle1 && checkCycle2) {
+                _cycles++;
+            }
+
+            // Always set the unused status flag bit to 1
+            _setStatusFlag(StatusBit::bitUnused, true);
+        }
+        _cycles--;
+    }
+}
+
+// Wrapper function reading from the Bus
+bool Cpu::_read(uint16_t address, uint8_t& data)
+{
+    return _bus->read(address, data);
+}
+
+// Wrapper function writing to the Bus
+bool Cpu::_write(uint16_t address, uint8_t data)
+{
+    if (address == oamDMAddress) {
+        _dma.mode = true;
+        _dma.startTransfer = false;
+        _dma.addressHigh = data;
+        _dma.addressLow = 0x00;
+        return true;
+    } else {
+        return _bus->write(address, data);
+    }
 }
 
 void Cpu::_disassemble()
@@ -240,14 +323,14 @@ void Cpu::_disassemble()
     auto data = uint8_t{0x00};
     auto opCode = uint8_t{0x00};
 
-    _bus->read(address, opCode);
+    _read(address, opCode);
     if (_commandTable[opCode].opCodeLength > 0) {
         char hexData[4] = {0};
         std::string opData;
 
         fprintf(stdout, "%04X  ", registers.programCounter);
         for (int i = 0; i < _commandTable[opCode].opCodeLength; i++) {
-            _bus->read(address, data);
+            _read(address, data);
             address++;
             fprintf(stdout, "%02X ", data);
             if (i > 0) {
@@ -268,34 +351,6 @@ void Cpu::_disassemble()
         fprintf(stdout, "\t\t\tA:%02X X:%02X Y:%02X P:%02X SP:%02X\n", registers.accumulator, registers.registerX,
                 registers.registerY, registers.status, registers.stackPointer);
     }
-}
-
-// Execute one clock cycle
-void Cpu::tick()
-{
-    if (_cycles == 0) {
-        // To enable ASM debugging only
-        //_disassemble();
-
-        // Read next OpCode
-        _bus->read(registers.programCounter, _currentOpCode);
-        registers.programCounter++;
-
-        _setStatusFlag(StatusBit::bitUnused, true);
-
-        _cycles = _commandTable[_currentOpCode].cycles;
-
-        // Execute AddressMode and OpCode and add cycles if needed
-        auto checkCycle1 = _runAddressMode(_commandTable[_currentOpCode].addressMode);
-        auto checkCycle2 = _runOpCode(_commandTable[_currentOpCode].opCode);
-        if (checkCycle1 && checkCycle2) {
-            _cycles++;
-        }
-
-        // Always set the unused status flag bit to 1
-        _setStatusFlag(StatusBit::bitUnused, true);
-    }
-    _cycles--;
 }
 
 bool Cpu::_runAddressMode(AddressMode addressMode)
@@ -491,7 +546,7 @@ void Cpu::_setStatusFlag(StatusBit statusBit, bool value)
 uint8_t Cpu::_getCurrentData()
 {
     if (!(_commandTable[_currentOpCode].addressMode == AddressMode::IMP)) {
-        _bus->read(_currentAddress, _currentData);
+        _read(_currentAddress, _currentData);
     }
     return _currentData;
 }
@@ -516,7 +571,7 @@ bool Cpu::_modeIMM()
 bool Cpu::_modeZP0()
 {
     auto data = uint8_t{0x00};
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     _currentAddress = static_cast<uint16_t>(data);
 
     registers.programCounter++;
@@ -529,7 +584,7 @@ bool Cpu::_modeZP0()
 bool Cpu::_modeZPX()
 {
     auto data = uint8_t{0x00};
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     _currentAddress = static_cast<uint16_t>(data) + registers.registerX;
 
     registers.programCounter++;
@@ -542,7 +597,7 @@ bool Cpu::_modeZPX()
 bool Cpu::_modeZPY()
 {
     auto data = uint8_t{0x00};
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     _currentAddress = static_cast<uint16_t>(data) + registers.registerY;
 
     registers.programCounter++;
@@ -555,7 +610,7 @@ bool Cpu::_modeZPY()
 bool Cpu::_modeREL()
 {
     auto data = uint8_t{0x00};
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     _relativeAddress = static_cast<uint16_t>(data);
 
     registers.programCounter++;
@@ -571,11 +626,11 @@ bool Cpu::_modeABS()
 {
     auto data = uint8_t{0x00};
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto lowByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto highByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
@@ -589,11 +644,11 @@ bool Cpu::_modeABX()
 {
     auto data = uint8_t{0x00};
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto lowByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto highByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
@@ -612,11 +667,11 @@ bool Cpu::_modeABY()
 {
     auto data = uint8_t{0x00};
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto lowByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto highByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
@@ -635,11 +690,11 @@ bool Cpu::_modeIND()
 {
     auto data = uint8_t{0x00};
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto lowByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto highByte = static_cast<uint16_t>(data);
     registers.programCounter++;
 
@@ -652,15 +707,15 @@ bool Cpu::_modeIND()
          * FF->00 overflow into the --. For example when the address is 0x23FF,
          * it would read 0x2300 and 0x23FF, instead of 0x2400 and 0x23FF.
          */
-        _bus->read((address & 0xFF00), data);
+        _read((address & 0xFF00), data);
         _currentAddress = static_cast<uint16_t>(data) << 8;
-        _bus->read(address, data);
+        _read(address, data);
         _currentAddress |= data;
     } else {
         // Normal behaviour
-        _bus->read((address + 1), data);
+        _read((address + 1), data);
         _currentAddress = static_cast<uint16_t>(data) << 8;
-        _bus->read(address, data);
+        _read(address, data);
         _currentAddress |= data;
     }
 
@@ -672,13 +727,13 @@ bool Cpu::_modeIZX()
 {
     auto data = uint8_t{0x00};
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto address = static_cast<uint16_t>(data);
     registers.programCounter++;
 
-    _bus->read((address + registers.registerX) & 0x00FF, data);
+    _read((address + registers.registerX) & 0x00FF, data);
     auto lowByte = static_cast<uint16_t>(data);
-    _bus->read((address + registers.registerX + 1) & 0x00FF, data);
+    _read((address + registers.registerX + 1) & 0x00FF, data);
     auto highByte = static_cast<uint16_t>(data);
 
     _currentAddress = (highByte << 8) | lowByte;
@@ -691,13 +746,13 @@ bool Cpu::_modeIZY()
 {
     auto data = uint8_t{0x00};
 
-    _bus->read(registers.programCounter, data);
+    _read(registers.programCounter, data);
     auto address = static_cast<uint16_t>(data);
     registers.programCounter++;
 
-    _bus->read(address & 0x00FF, data);
+    _read(address & 0x00FF, data);
     auto lowByte = static_cast<uint16_t>(data);
-    _bus->read((address + 1) & 0x00FF, data);
+    _read((address + 1) & 0x00FF, data);
     auto highByte = static_cast<uint16_t>(data);
 
     _currentAddress = (highByte << 8) | lowByte;
@@ -860,7 +915,7 @@ bool Cpu::_codeASL()
     if (_commandTable[_currentOpCode].addressMode == AddressMode::IMP) {
         registers.accumulator = static_cast<uint8_t>(result);
     } else {
-        _bus->write(_currentAddress, static_cast<uint8_t>(result));
+        _write(_currentAddress, static_cast<uint8_t>(result));
     }
 
     return false;
@@ -911,7 +966,7 @@ bool Cpu::_codeDEC()
     auto data = _getCurrentData();
     auto result = data - 1;
 
-    _bus->write(_currentAddress, result);
+    _write(_currentAddress, result);
 
     _setStatusFlag(StatusBit::bitZero, !result);
     _setStatusFlag(StatusBit::bitNegative, result & 0x80);
@@ -955,7 +1010,7 @@ bool Cpu::_codeINC()
 {
     auto data = _getCurrentData();
     auto result = static_cast<uint16_t>(data) + 1;
-    _bus->write(_currentAddress, static_cast<uint8_t>(result & 0x00FF));
+    _write(_currentAddress, static_cast<uint8_t>(result & 0x00FF));
 
     _setStatusFlag(StatusBit::bitZero, !(result & 0x00FF));
     _setStatusFlag(StatusBit::bitNegative, result & 0x0080);
@@ -987,16 +1042,17 @@ bool Cpu::_codeINY()
 bool Cpu::_codeLSR()
 {
     auto data = _getCurrentData();
+    _setStatusFlag(StatusBit::bitCarry, data & 0x0001);
     auto result = static_cast<uint16_t>(data) >> 1;
 
-    _setStatusFlag(StatusBit::bitCarry, data & 0x0001);
+    //_setStatusFlag(StatusBit::bitCarry, data & 0x0001);
     _setStatusFlag(StatusBit::bitZero, !(result & 0x00FF));
     _setStatusFlag(StatusBit::bitNegative, result & 0x0080);
 
     if (_commandTable[_currentOpCode].addressMode == AddressMode::IMP) {
         registers.accumulator = static_cast<uint8_t>(result);
     } else {
-        _bus->write(_currentAddress, static_cast<uint8_t>(result));
+        _write(_currentAddress, static_cast<uint8_t>(result));
     }
 
     return false;
@@ -1026,7 +1082,7 @@ bool Cpu::_codeROL()
     if (_commandTable[_currentOpCode].addressMode == AddressMode::IMP) {
         registers.accumulator = static_cast<uint8_t>(result);
     } else {
-        _bus->write(_currentAddress, static_cast<uint8_t>(result));
+        _write(_currentAddress, static_cast<uint8_t>(result));
     }
 
     return false;
@@ -1045,7 +1101,7 @@ bool Cpu::_codeROR()
     if (_commandTable[_currentOpCode].addressMode == AddressMode::IMP) {
         registers.accumulator = static_cast<uint8_t>(result);
     } else {
-        _bus->write(_currentAddress, static_cast<uint8_t>(result));
+        _write(_currentAddress, static_cast<uint8_t>(result));
     }
 
     return false;
@@ -1237,21 +1293,21 @@ bool Cpu::_codeBRK()
     registers.programCounter++;
 
     _setStatusFlag(StatusBit::bitDisableInterrupt, true);
-    _bus->write(stackBaseAddress + registers.stackPointer,
+    _write(stackBaseAddress + registers.stackPointer,
                 static_cast<uint8_t>((registers.programCounter >> 8) & 0x00FF));
     registers.stackPointer--;
-    _bus->write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
+    _write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
     registers.stackPointer--;
 
     _setStatusFlag(StatusBit::bitBreakCommand, true);
-    _bus->write(stackBaseAddress + registers.stackPointer, registers.status);
+    _write(stackBaseAddress + registers.stackPointer, registers.status);
     registers.stackPointer--;
     _setStatusFlag(StatusBit::bitBreakCommand, false);
 
     auto data = uint8_t{0x00};
-    _bus->read(breakInterruptAddress, data);
+    _read(breakInterruptAddress, data);
     registers.programCounter = static_cast<uint16_t>(data);
-    _bus->read(breakInterruptAddress + 1, data);
+    _read(breakInterruptAddress + 1, data);
     registers.programCounter |= static_cast<uint16_t>(data) << 8;
 
     return false;
@@ -1270,10 +1326,10 @@ bool Cpu::_codeJSR()
 {
     registers.programCounter--;
 
-    _bus->write(stackBaseAddress + registers.stackPointer,
+    _write(stackBaseAddress + registers.stackPointer,
                 static_cast<uint8_t>((registers.programCounter >> 8) & 0x00FF));
     registers.stackPointer--;
-    _bus->write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
+    _write(stackBaseAddress + registers.stackPointer, static_cast<uint8_t>(registers.programCounter & 0x00FF));
     registers.stackPointer--;
 
     registers.programCounter = _currentAddress;
@@ -1284,7 +1340,7 @@ bool Cpu::_codeJSR()
 // Push Accumulator to Stack Pointer
 bool Cpu::_codePHA()
 {
-    _bus->write(stackBaseAddress + registers.stackPointer, registers.accumulator);
+    _write(stackBaseAddress + registers.stackPointer, registers.accumulator);
     registers.stackPointer--;
 
     return false;
@@ -1295,7 +1351,7 @@ bool Cpu::_codePHP()
 {
     _setStatusFlag(StatusBit::bitBreakCommand, true);
     _setStatusFlag(StatusBit::bitUnused, true);
-    _bus->write(stackBaseAddress + registers.stackPointer, registers.status);
+    _write(stackBaseAddress + registers.stackPointer, registers.status);
 
     _setStatusFlag(StatusBit::bitBreakCommand, false);
     _setStatusFlag(StatusBit::bitUnused, false);
@@ -1310,7 +1366,7 @@ bool Cpu::_codePLA()
     auto data = uint8_t{0x00};
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.accumulator = data;
 
     _setStatusFlag(StatusBit::bitZero, !registers.accumulator);
@@ -1325,7 +1381,7 @@ bool Cpu::_codePLP()
     auto data = uint8_t{0x00};
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.status = data & 0xEF;
     _setStatusFlag(StatusBit::bitUnused, true);
 
@@ -1338,7 +1394,7 @@ bool Cpu::_codeRTI()
     auto data = uint8_t{0x00};
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.status = data;
 
     _setStatusFlag(StatusBit::bitBreakCommand, false);
@@ -1347,11 +1403,11 @@ bool Cpu::_codeRTI()
     // status &= ~U; --> why use unused bit???
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.programCounter = static_cast<uint16_t>(data);
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.programCounter |= static_cast<uint16_t>(data) << 8;
 
     return false;
@@ -1363,11 +1419,11 @@ bool Cpu::_codeRTS()
     auto data = uint8_t{0x00};
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.programCounter = static_cast<uint16_t>(data);
 
     registers.stackPointer++;
-    _bus->read(stackBaseAddress + registers.stackPointer, data);
+    _read(stackBaseAddress + registers.stackPointer, data);
     registers.programCounter |= static_cast<uint16_t>(data) << 8;
 
     registers.programCounter++;
@@ -1414,7 +1470,7 @@ bool Cpu::_codeLDY()
 // Store Accumulator to Address
 bool Cpu::_codeSTA()
 {
-    _bus->write(_currentAddress, registers.accumulator);
+    _write(_currentAddress, registers.accumulator);
 
     return false;
 }
@@ -1422,7 +1478,7 @@ bool Cpu::_codeSTA()
 // Store Register X to Address
 bool Cpu::_codeSTX()
 {
-    _bus->write(_currentAddress, registers.registerX);
+    _write(_currentAddress, registers.registerX);
 
     return false;
 }
@@ -1430,7 +1486,7 @@ bool Cpu::_codeSTX()
 // Store Register Y to Address
 bool Cpu::_codeSTY()
 {
-    _bus->write(_currentAddress, registers.registerY);
+    _write(_currentAddress, registers.registerY);
 
     return false;
 }

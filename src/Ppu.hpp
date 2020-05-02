@@ -15,6 +15,8 @@
 #define PPU_FRAME_BUFFER_SIZE (PPU_FRAME_WIDTH * PPU_FRAME_HEIGHT)
 #define PPU_FRAME_BUFFER_RGB_SIZE (PPU_FRAME_BUFFER_SIZE * 3)
 
+#define PPU_MAX_SPRITES 64
+
 enum class PpuRegisterAddress {
     Control,
     Mask,
@@ -112,6 +114,28 @@ typedef struct NameTableTile {
     Tile tile[32 * 30];
 } NameTableTile;
 
+// The OAM (Object Attribute Memory) is internal memory inside the PPU that
+// contains a display list of up to 64 sprites, where each sprite's information
+// occupies 4 bytes.
+// Reference: https://wiki.nesdev.com/w/index.php/PPU_OAM
+typedef struct SpriteAttributeFlags {
+    uint8_t spritePaletteIndex : 2;
+    uint8_t unused : 3;
+    bool isBehindBackground : 1;
+    bool isHorizontalFlip : 1;
+    bool isVerticalFlip : 1;
+} SpriteAttributeFlags;
+
+typedef struct SpriteInformation {
+    uint8_t positionY;
+    uint8_t tileIndex;
+    union {
+        uint8_t attributes;
+        SpriteAttributeFlags attributeFlag;
+    };
+    uint8_t positionX;
+} SpriteInformation;
+
 class Ppu {
 public:
     Ppu(std::shared_ptr<IDevice> bus, std::shared_ptr<Cartridge> cartridge);
@@ -128,6 +152,10 @@ public:
     uint8_t* getFrameBuffer();
     bool isFrameDone();
     bool isVBlankTriggered();
+
+    // OAM Interface
+    void writeOAMData(uint8_t address, uint8_t data);
+    void readOAMData(uint8_t address, uint8_t& data);
 
     // PPU registers
     PpuRegister registers;
@@ -176,4 +204,8 @@ private:
     std::vector<Pixel> _paletteTablePixel;
     std::array<PatternTableTile, 2> _patternTablePixel;
     std::array<NameTableTile, 4> _nameTablePixel;
+
+    // Sprites
+    SpriteInformation _sprites[PPU_MAX_SPRITES];
+    uint8_t _oamAddress;
 };

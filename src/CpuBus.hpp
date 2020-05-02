@@ -31,16 +31,17 @@ public:
     bool read(uint16_t address, uint8_t& data);
     bool write(uint16_t address, uint8_t data);
     /// @]
+
 private:
     // Memory device attached to this Cpu Bus
     std::shared_ptr<IMemory> _memory;
-
-    // Controller attached to this Cpu Bus
-    std::shared_ptr<IDevice> _controller;
 
     // PPU Interface
     std::shared_ptr<Ppu> _ppu;
 
     // NES Catridge
     std::shared_ptr<Cartridge> _cartridge;
+
+    // Controller attached to this Cpu Bus
+    std::shared_ptr<IDevice> _controller;
 };

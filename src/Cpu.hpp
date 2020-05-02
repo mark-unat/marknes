@@ -1,11 +1,14 @@
 #pragma once
 
+#include <stdio.h>
+#include <string.h>
 #include <functional>
 #include <vector>
 #include <string>
 #include <memory>
 
 #include "IDevice.hpp"
+#include "Ppu.hpp"
 
 enum class AddressMode {
     IMP,
@@ -125,9 +128,17 @@ typedef struct Command {
     uint8_t cycles;
 } Command;
 
+typedef struct DMA {
+    bool mode;
+    bool startTransfer;
+    uint8_t addressLow;
+    uint8_t addressHigh;
+    uint8_t data;
+} DMA;
+
 class Cpu {
 public:
-    Cpu(std::shared_ptr<IDevice> bus);
+    Cpu(std::shared_ptr<IDevice> bus, std::shared_ptr<Ppu> ppu);
     ~Cpu();
 
     // CPU registers
@@ -139,7 +150,7 @@ public:
     void nonMaskableInterruptRequest();
 
     // Execute one clock cycle
-    void tick();
+    void tick(bool isOddCycle);
 
 private:
     uint16_t _currentAddress = 0x0000;
@@ -152,6 +163,14 @@ private:
     std::shared_ptr<IDevice> _bus;
 
     std::vector<Command> _commandTable;
+
+    // Wrapper functions to the Cpu Bus
+    bool _read(uint16_t address, uint8_t& data);
+    bool _write(uint16_t address, uint8_t data);
+
+    // PPU Interface for DMA function
+    std::shared_ptr<Ppu> _ppu;
+    DMA _dma;
 
     void _disassemble();
     bool _runAddressMode(AddressMode addressMode);
