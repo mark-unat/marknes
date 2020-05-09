@@ -11,9 +11,11 @@ PpuBus::PpuBus(std::shared_ptr<IMemory> nameTable,
 
 bool PpuBus::read(uint16_t address, uint8_t& data)
 {
-    if ((address >= patternTableBaseAddress) && (address <= patternTableEndAddress)) {
+    switch (address) {
+    case patternTableBaseAddress ... patternTableEndAddress:
         return _cartridge->readChrRom(address, data);
-    } else if ((address >= nameTableBaseAddress) && (address <= nameTableEndAddress)) {
+    case nameTableBaseAddress ... nameTableEndAddress:
+    {
         auto newAddress{address};
         if (_cartridge->getMirroringMode() == MirroringMode::Vertical) {
             // Vertical Mirroring (used for horizontal scrolling)
@@ -34,7 +36,9 @@ bool PpuBus::read(uint16_t address, uint8_t& data)
             }
         }
         return _nameTable->read(newAddress, data);
-    } else if ((address >= paletteTableBaseAddress) && (address <= paletteTableEndAddress)) {
+    }
+    case paletteTableBaseAddress ... paletteTableEndAddress:
+    {
         auto newAddress{address};
         // The following addresses are just mirrors
         if ((address == paletteTableBG1Address) || (address == paletteTableBG2Address) ||
@@ -43,15 +47,20 @@ bool PpuBus::read(uint16_t address, uint8_t& data)
         }
         return _paletteTable->read(newAddress, data);
     }
+    default:
+        break;
+    }
 
     return false;
 }
 
 bool PpuBus::write(uint16_t address, uint8_t data)
 {
-    if ((address >= patternTableBaseAddress) && (address <= patternTableEndAddress)) {
+    switch (address) {
+    case patternTableBaseAddress ... patternTableEndAddress:
         return _cartridge->writeChrRom(address, data);
-    } else if ((address >= nameTableBaseAddress) && (address <= nameTableEndAddress)) {
+    case nameTableBaseAddress ... nameTableEndAddress:
+    {
         auto newAddress{address};
         if (_cartridge->getMirroringMode() == MirroringMode::Vertical) {
             // Vertical Mirroring (used for horizontal scrolling)
@@ -72,7 +81,9 @@ bool PpuBus::write(uint16_t address, uint8_t data)
             }
         }
         return _nameTable->write(newAddress, data);
-    } else if ((address >= paletteTableBaseAddress) && (address <= paletteTableEndAddress)) {
+    }
+    case paletteTableBaseAddress ... paletteTableEndAddress:
+    {
         auto newAddress{address};
         // The following addresses are just mirrors
         if ((address == paletteTableBG1Address) || (address == paletteTableBG2Address) ||
@@ -80,6 +91,9 @@ bool PpuBus::write(uint16_t address, uint8_t data)
             newAddress = address - (paletteTableBG1Address - paletteTableBaseAddress);
         }
         return _paletteTable->write(newAddress, data);
+    }
+    default:
+        break;
     }
 
     return false;

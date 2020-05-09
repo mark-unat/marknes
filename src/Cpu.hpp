@@ -11,77 +11,26 @@
 #include "Ppu.hpp"
 
 enum class AddressMode {
-    IMP,
-    IMM,
-    ZP0,
-    ZPX,
-    ZPY,
-    REL,
-    ABS,
-    ABX,
-    ABY,
-    IND,
-    IZX,
-    IZY,
+    IMP, IMM, ZP0, ZPX,
+    ZPY, REL, ABS, ABX,
+    ABY, IND, IZX, IZY,
 };
 
 enum class OpCode {
-    ADC,
-    AND,
-    ASL,
-    BCC,
-    BCS,
-    BEQ,
-    BIT,
-    BMI,
-    BNE,
-    BPL,
-    BRK,
-    BVC,
-    BVS,
-    CLC,
-    CLD,
-    CLI,
-    CLV,
-    CMP,
-    CPX,
-    CPY,
-    DEC,
-    DEX,
-    DEY,
-    EOR,
-    INC,
-    INX,
-    INY,
-    JMP,
-    JSR,
-    LDA,
-    LDX,
-    LDY,
-    LSR,
-    NOP,
-    ORA,
-    PHA,
-    PHP,
-    PLA,
-    PLP,
-    ROL,
-    ROR,
-    RTI,
-    RTS,
-    SBC,
-    SEC,
-    SED,
-    SEI,
-    STA,
-    STX,
-    STY,
-    TAX,
-    TAY,
-    TSX,
-    TXA,
-    TXS,
-    TYA,
+    ADC, AND, ASL, BCC,
+    BCS, BEQ, BIT, BMI,
+    BNE, BPL, BRK, BVC,
+    BVS, CLC, CLD, CLI,
+    CLV, CMP, CPX, CPY,
+    DEC, DEX, DEY, EOR,
+    INC, INX, INY, JMP,
+    JSR, LDA, LDX, LDY,
+    LSR, NOP, ORA, PHA,
+    PHP, PLA, PLP, ROL,
+    ROR, RTI, RTS, SBC,
+    SEC, SED, SEI, STA,
+    STX, STY, TAX, TAY,
+    TSX, TXA, TXS, TYA,
     INV,
 };
 
@@ -179,76 +128,24 @@ private:
     uint8_t _getCurrentData();
 
     // Address Mode implementations
-    bool _modeIMP();
-    bool _modeIMM();
-    bool _modeZP0();
-    bool _modeZPX();
-    bool _modeZPY();
-    bool _modeREL();
-    bool _modeABS();
-    bool _modeABX();
-    bool _modeABY();
-    bool _modeIND();
-    bool _modeIZX();
-    bool _modeIZY();
-    bool _modeINV();
+    bool _modeIMP(); bool _modeIMM(); bool _modeZP0(); bool _modeZPX();
+    bool _modeZPY(); bool _modeREL(); bool _modeABS(); bool _modeABX();
+    bool _modeABY(); bool _modeIND(); bool _modeIZX(); bool _modeIZY();
 
     // Opcode instructions
-    bool _codeADC();
-    bool _codeAND();
-    bool _codeASL();
-    bool _codeBCC();
-    bool _codeBCS();
-    bool _codeBEQ();
-    bool _codeBIT();
-    bool _codeBMI();
-    bool _codeBNE();
-    bool _codeBPL();
-    bool _codeBRK();
-    bool _codeBVC();
-    bool _codeBVS();
-    bool _codeCLC();
-    bool _codeCLD();
-    bool _codeCLI();
-    bool _codeCLV();
-    bool _codeCMP();
-    bool _codeCPX();
-    bool _codeCPY();
-    bool _codeDEC();
-    bool _codeDEX();
-    bool _codeDEY();
-    bool _codeEOR();
-    bool _codeINC();
-    bool _codeINX();
-    bool _codeINY();
-    bool _codeJMP();
-    bool _codeJSR();
-    bool _codeLDA();
-    bool _codeLDX();
-    bool _codeLDY();
-    bool _codeLSR();
-    bool _codeNOP();
-    bool _codeORA();
-    bool _codePHA();
-    bool _codePHP();
-    bool _codePLA();
-    bool _codePLP();
-    bool _codeROL();
-    bool _codeROR();
-    bool _codeRTI();
-    bool _codeRTS();
-    bool _codeSBC();
-    bool _codeSEC();
-    bool _codeSED();
-    bool _codeSEI();
-    bool _codeSTA();
-    bool _codeSTX();
-    bool _codeSTY();
-    bool _codeTAX();
-    bool _codeTAY();
-    bool _codeTSX();
-    bool _codeTXA();
-    bool _codeTXS();
-    bool _codeTYA();
+    bool _codeADC(); bool _codeAND(); bool _codeASL(); bool _codeBCC();
+    bool _codeBCS(); bool _codeBEQ(); bool _codeBIT(); bool _codeBMI();
+    bool _codeBNE(); bool _codeBPL(); bool _codeBRK(); bool _codeBVC();
+    bool _codeBVS(); bool _codeCLC(); bool _codeCLD(); bool _codeCLI();
+    bool _codeCLV(); bool _codeCMP(); bool _codeCPX(); bool _codeCPY();
+    bool _codeDEC(); bool _codeDEX(); bool _codeDEY(); bool _codeEOR();
+    bool _codeINC(); bool _codeINX(); bool _codeINY(); bool _codeJMP();
+    bool _codeJSR(); bool _codeLDA(); bool _codeLDX(); bool _codeLDY();
+    bool _codeLSR(); bool _codeNOP(); bool _codeORA(); bool _codePHA();
+    bool _codePHP(); bool _codePLA(); bool _codePLP(); bool _codeROL();
+    bool _codeROR(); bool _codeRTI(); bool _codeRTS(); bool _codeSBC();
+    bool _codeSEC(); bool _codeSED(); bool _codeSEI(); bool _codeSTA();
+    bool _codeSTX(); bool _codeSTY(); bool _codeTAX(); bool _codeTAY();
+    bool _codeTSX(); bool _codeTXA(); bool _codeTXS(); bool _codeTYA();
     bool _codeINV();
 };

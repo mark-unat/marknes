@@ -421,14 +421,21 @@ uint8_t* Ppu::getFrameBuffer()
 NameTableTile Ppu::_getNameTableTile(uint8_t index)
 {
     auto nameTableAddress = uint16_t{0x0000};
-    if (index == 0) {
+    switch (index) {
+    case 0:
         nameTableAddress = nameTable1StartAddress;
-    } else if (index == 1) {
+        break;
+    case 1:
         nameTableAddress = nameTable2StartAddress;
-    } else if (index == 2) {
+        break;
+    case 2:
         nameTableAddress = nameTable3StartAddress;
-    } else if (index == 3) {
+        break;
+    case 3:
         nameTableAddress = nameTable4StartAddress;
+        break;
+    default:
+        break;
     }
 
     // Temporarily get pattern #0 using palette #0

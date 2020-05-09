@@ -13,15 +13,17 @@ CpuBus::CpuBus(std::shared_ptr<IMemory> memory,
 
 bool CpuBus::read(uint16_t address, uint8_t& data)
 {
-    if ((address >= memoryBaseAddress) && (address <= memoryEndAddress)) {
+    switch (address) {
+    case memoryBaseAddress ... memoryEndAddress:
         return _memory->read(address, data);
-    } else if ((address >= ppuBaseAddress) && (address <= ppuEndAddress)) {
+    case ppuBaseAddress ... ppuEndAddress:
         return _ppu->read(address, data);
-    } else if ((address >= controller1Address) && (address <= controller2Address)) {
+    case controller1Address ... controller2Address:
         return _controller->read(address, data);
-    } else if ((address >= cartridgeBaseAddress) && (address <= cartridgeEndAddress)) {
+    case cartridgeBaseAddress ... cartridgeEndAddress:
         return _cartridge->readPrgRom(address, data);
-    } else {
+    default:
+        break;
     }
 
     return false;
@@ -29,15 +31,17 @@ bool CpuBus::read(uint16_t address, uint8_t& data)
 
 bool CpuBus::write(uint16_t address, uint8_t data)
 {
-    if ((address >= memoryBaseAddress) && (address <= memoryEndAddress)) {
+    switch (address) {
+    case memoryBaseAddress ... memoryEndAddress:
         return _memory->write(address, data);
-    } else if ((address >= ppuBaseAddress) && (address <= ppuEndAddress)) {
+    case ppuBaseAddress ... ppuEndAddress:
         return _ppu->write(address, data);
-    } else if ((address >= controller1Address) && (address <= controller2Address)) {
+    case controller1Address ... controller2Address:
         return _controller->write(address, data);
-    } else if ((address >= cartridgeBaseAddress) && (address <= cartridgeEndAddress)) {
+    case cartridgeBaseAddress ... cartridgeEndAddress:
         return _cartridge->writePrgRom(address, data);
-    } else {
+    default:
+        break;
     }
 
     return false;
