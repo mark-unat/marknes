@@ -275,14 +275,183 @@ void Ppu::tick()
             break;
         }
 
-        // Specific events in the pre-render line
         if (_scanLine == 261) {
+            // Events for the pre-render scanline only
             if (_cycles == 1) {
                 // Clear VBlank flag
                 registers.statusFlag.verticalBlankFlag = false;
+
+                // Clear Sprite Overflow flag
+                registers.statusFlag.spriteOverflow = false;
+
+                // Clear Sprite Zero Hit flag
+                registers.statusFlag.spriteZeroHit = false;
             } else if ((_cycles >= 280) && (_cycles <= 304)) {
                 // Copy vertical temporary VRAM to current VRAM
                 _updateVramVerticalInfo();
+            }
+        } else {
+            // Events for visible scanlines only
+            // These are foreground related evaluation
+            switch (_cycles) {
+            case 1:
+                // Clear Secondary OAM data with 0xFF values
+                clearSecondaryOAMData(0xFF);
+                break;
+            case 65:
+            {
+                // Sprite Evaluation Logic
+                _spriteZeroNextScanLine = false;
+                uint8_t index = 0;
+                for (uint8_t secondaryIndex = 0; index < PPU_MAX_SPRITES; index++) {
+                    _spritesSecondary[secondaryIndex].positionY = _sprites[index].positionY;
+                    uint8_t spriteHeight = _spritesSecondary[secondaryIndex].positionY + 8;
+                    if (registers.controlFlag.spriteSize) {
+                        // sprite's height is 16 pixel high
+                        spriteHeight += 8;
+                    }
+                    // Check if this sprite can be seen on this scanline
+                    if ((_scanLine >= _spritesSecondary[secondaryIndex].positionY) &&
+                        (_scanLine < spriteHeight)) {
+                        memcpy(&_spritesSecondary[secondaryIndex], &_sprites[index], sizeof(SpriteInformation));
+                        secondaryIndex++;
+                        if (index == 0) {
+                            _spriteZeroNextScanLine = true;
+                        }
+                    }
+                    if (secondaryIndex >= PPU_MAX_SPRITES_SECONDARY) {
+                        // We've filled up our Secondary OAM buffer, stop
+                        // evaluating sprites from Primary OAM buffer.
+                        break;
+                    }
+                }
+
+                // Sprite Overflow Detection: Emulate hardware bug
+                // Check the remaining Primary OAM buffer, but in a weird way.
+                // Get to the next primary OAM index after evaluating
+                index++;
+                uint8_t* OAMData = reinterpret_cast<uint8_t*>(_sprites);
+                uint8_t infoIndex = 0;
+                for (; index < PPU_MAX_SPRITES; index++) {
+                    // This is the bug: infoIndex should've remained 0 while
+                    // searching for a sprite overflow, but what happened is
+                    // that this index got always incremented, so we're now
+                    // checking for the wrong data as positionY, thus could led
+                    // to false positives and negatives.
+                    uint8_t positionY = OAMData[index * 4 + infoIndex];
+                    uint8_t spriteHeight = positionY + 8;
+                    if (registers.controlFlag.spriteSize) {
+                        // sprite's height is 16 pixel high
+                        spriteHeight += 8;
+                    }
+                    // Check if this sprite can be seen on this scanline
+                    if ((_scanLine >= positionY) && (_scanLine < spriteHeight)) {
+                        // Set Sprite Overflow flag
+                        registers.statusFlag.spriteOverflow = true;
+                        break;
+                    }
+                    infoIndex++;
+                    if (infoIndex >= 4) {
+                        infoIndex = 0;
+                    }
+                }
+                break;
+            }
+            case 257 ... 320:
+            {
+                if (_cycles == 257) {
+                    // Copy Sprite Zero Possible flag for this scanline
+                    _spriteZeroOnScanLine = _spriteZeroNextScanLine;
+                }
+                // Sprite fetches: 8 sprites total, 8 cycles per sprite
+                uint8_t spriteIndex = (_cycles - 257) / 8;
+                switch ((_cycles - 257) % 8) {
+                case 0:
+                {
+                    uint8_t positionY = _scanLine - _spritesSecondary[spriteIndex].positionY;
+                    uint8_t tileIndex = _spritesSecondary[spriteIndex].tileIndex;
+                    _spriteAttribute[spriteIndex] = _spritesSecondary[spriteIndex].attributes;
+                    _spritePositionX[spriteIndex] = _spritesSecondary[spriteIndex].positionX;
+
+                    if (!registers.controlFlag.spriteSize) {
+                        // Sprite is 8x8 dimension
+
+                        // Check which table we get our sprite from
+                        if (registers.controlFlag.spritePatternTable) {
+                            _spritePatternAddress = patternTableBackgroundAddress;
+                        } else {
+                            _spritePatternAddress = patternTableSpriteAddress;
+                        }
+
+                        // Check if sprite is flipped vertically from its attribute
+                        if (_spritesSecondary[spriteIndex].attributeFlag.isVerticalFlip) {
+                            // Invert our Y position (8 pixel high)
+                            positionY = 7 - positionY;
+                        }
+
+                        // 16 bytes per tile and which position in a row
+                        _spritePatternAddress += 16 * tileIndex + positionY;
+                    } else {
+                        // Sprite is 8x16 dimension
+
+                        // Check which table we get our sprite from
+                        if (tileIndex & 0x01) {
+                            _spritePatternAddress = patternTableBackgroundAddress;
+                        } else {
+                            _spritePatternAddress = patternTableSpriteAddress;
+                        }
+
+                        // Check if sprite is flipped vertically from its attribute
+                        if (_spritesSecondary[spriteIndex].attributeFlag.isVerticalFlip) {
+                            // Invert our Y position (16 pixel high)
+                            positionY = 15 - positionY;
+                        }
+
+                        // Deal with the 16-pixel height
+                        if (positionY < 8) {
+                            // Top half of Tile
+                            // 16 bytes per tile and which position in a row
+                            _spritePatternAddress += 16 * (tileIndex & 0xFE) + positionY;
+                        } else {
+                            // Bottom half of Tile
+                            // 16 bytes per tile and add extra 16 for the next half
+                            // Adjust the position to point to correct row
+                            _spritePatternAddress += 16 * (tileIndex & 0xFE) + 16 + (positionY - 8);
+                        }
+                    }
+                    break;
+                }
+                case 4:
+                    // Fetch Low Sprite Tile
+                    if (_spritesSecondary[spriteIndex].positionY >= (PPU_FRAME_HEIGHT - 1)) {
+                        // Not a visible sprite, set to transparent sprite
+                        shiftRegisterLowSpriteTile[spriteIndex] = 0x00;
+                    } else {
+                        _bus->read(_spritePatternAddress, shiftRegisterLowSpriteTile[spriteIndex]);
+                        if (_spritesSecondary[spriteIndex].attributeFlag.isHorizontalFlip) {
+                            _flipBits(shiftRegisterLowSpriteTile[spriteIndex]);
+                        }
+                    }
+                    break;
+                case 6:
+                    // Fetch High Sprite Tile
+                    if (_spritesSecondary[spriteIndex].positionY >= (PPU_FRAME_HEIGHT - 1)) {
+                        // Not a visible sprite, set to transparent sprite
+                        shiftRegisterHighSpriteTile[spriteIndex] = 0x00;
+                    } else {
+                        _bus->read(_spritePatternAddress + 8, shiftRegisterHighSpriteTile[spriteIndex]);
+                        if (_spritesSecondary[spriteIndex].attributeFlag.isHorizontalFlip) {
+                            _flipBits(shiftRegisterHighSpriteTile[spriteIndex]);
+                        }
+                    }
+                    break;
+                default:
+                    break;
+                }
+                break;
+            }
+            default:
+                break;
             }
         }
 
@@ -347,6 +516,18 @@ void Ppu::reset()
     shiftRegisterHighBGTile = 0x0000;
     shiftRegisterLowAttribute = 0x0000;
     shiftRegisterHighAttribute = 0x0000;
+
+    memset(&_sprites, 0, sizeof(_sprites));
+    memset(&_spritesSecondary, 0, sizeof(_spritesSecondary));
+    _spriteZeroNextScanLine = false;
+    _spriteZeroOnScanLine = false;
+    _spriteZeroUsed = false;
+    _spritePatternAddress = 0x0000;
+    _oamAddress = 0x00;
+    memset(&shiftRegisterLowSpriteTile, 0, sizeof(shiftRegisterLowSpriteTile));
+    memset(&shiftRegisterHighSpriteTile, 0, sizeof(shiftRegisterHighSpriteTile));
+    memset(&_spriteAttribute, 0, sizeof(_spriteAttribute));
+    memset(&_spritePositionX, 0, sizeof(_spritePositionX));
 }
 
 bool Ppu::isVBlankTriggered()
@@ -652,6 +833,12 @@ void Ppu::_moveShiftRegisters()
 
 void Ppu::_getIndexFromShiftRegisters(uint8_t& pixelIndex, uint8_t& paletteIndex)
 {
+    uint8_t backgroundPixelIndex = 0x00;
+    uint8_t backgroundPaletteIndex = 0x00;
+    uint8_t spritePixelIndex = 0x00;
+    uint8_t spritePaletteIndex = 0x00;
+    bool spritePriority = false;
+
     if (registers.maskFlag.showBackground) {
         // Selects which bit in the MSB of our shift registers to figure out
         // which pattern and attribute to render pixel at this point
@@ -665,7 +852,7 @@ void Ppu::_getIndexFromShiftRegisters(uint8_t& pixelIndex, uint8_t& paletteIndex
         if (shiftRegisterHighBGTile & selectBit) {
             highBit = 0x01;
         }
-        pixelIndex = (highBit << 1) + lowBit;
+        backgroundPixelIndex = (highBit << 1) + lowBit;
 
         lowBit = 0x00;
         highBit = 0x00;
@@ -675,7 +862,84 @@ void Ppu::_getIndexFromShiftRegisters(uint8_t& pixelIndex, uint8_t& paletteIndex
         if (shiftRegisterHighAttribute & selectBit) {
             highBit = 0x01;
         }
-        paletteIndex = (highBit << 1) + lowBit;
+        backgroundPaletteIndex = (highBit << 1) + lowBit;
+    }
+
+    if (registers.maskFlag.showSprites) {
+        _spriteZeroUsed = false;
+        for (uint8_t i = 0; i < PPU_MAX_SPRITES_SECONDARY; i++) {
+            if (_spritePositionX[i] > 0) {
+                _spritePositionX[i]--;
+            } else {
+                shiftRegisterLowSpriteTile[i] <<= 1;
+                shiftRegisterHighSpriteTile[i] <<= 1;
+            }
+        }
+        for (uint8_t i = 0; i < PPU_MAX_SPRITES_SECONDARY; i++) {
+            if (_spritePositionX[i] == 0) {
+                auto lowBit = uint8_t{0x00};
+                auto highBit = uint8_t{0x00};
+                if (shiftRegisterLowSpriteTile[i] & 0x80) {
+                    lowBit = 0x01;
+                }
+                if (shiftRegisterHighSpriteTile[i] & 0x80) {
+                    highBit = 0x01;
+                }
+                spritePixelIndex = (highBit << 1) + lowBit;
+
+                SpriteAttributeFlags spriteAttribute = *((SpriteAttributeFlags*)&_spriteAttribute[i]);
+                spritePriority = !spriteAttribute.isBehindBackground;
+
+                // Add 0x04 since this is on sprite palette table
+                spritePaletteIndex = spriteAttribute.spritePaletteIndex + 0x04;
+
+                if (spritePixelIndex != 0) {
+                    // Check if SpriteZero is being used
+                    if (i == 0 && _spriteZeroOnScanLine) {
+                        _spriteZeroUsed = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (backgroundPixelIndex == 0) {
+        if (spritePixelIndex == 0) {
+            // Nothing to draw
+            pixelIndex = 0x00;
+            paletteIndex = 0x00;
+        } else {
+            pixelIndex = spritePixelIndex;
+            paletteIndex = spritePaletteIndex;
+        }
+    } else {
+        if (spritePixelIndex == 0) {
+            pixelIndex = backgroundPixelIndex;
+            paletteIndex = backgroundPaletteIndex;
+        } else {
+            // Let's check if sprite has priority over background
+            if (spritePriority) {
+                pixelIndex = spritePixelIndex;
+                paletteIndex = spritePaletteIndex;
+            } else {
+                pixelIndex = backgroundPixelIndex;
+                paletteIndex = backgroundPaletteIndex;
+            }
+
+            if (_spriteZeroUsed) {
+                // Set Sprite Zero Hit flag
+                if ((!registers.maskFlag.showBackgroundLeft || !registers.maskFlag.showSpritesLeft) &&
+                    ((_cycles >= 1) && (_cycles <= 8))) {
+                    // Sprite Zero Hit does not happen at first 8 cycles if the
+                    // left-side clipping window is enabled (Bit2 or Bit1 of PPUMASK is 0)
+                    // https://wiki.nesdev.com/w/index.php?title=PPU_OAM&redirect=no#Sprite_zero_hits
+                    // Do not set sprite zero hit here
+                } else {
+                    registers.statusFlag.spriteZeroHit = true;
+                }
+            }
+        }
     }
 }
 
@@ -689,4 +953,26 @@ void Ppu::readOAMData(uint8_t address, uint8_t& data)
 {
     uint8_t* OAMData = reinterpret_cast<uint8_t*>(_sprites);
     data = OAMData[address];
+}
+
+void Ppu::clearSecondaryOAMData(uint8_t data)
+{
+    uint8_t* secondaryOAMData = reinterpret_cast<uint8_t*>(_spritesSecondary);
+    for (uint8_t i = 0; i < PPU_MAX_SPRITES_SECONDARY * sizeof(SpriteInformation); i++) {
+        secondaryOAMData[i] = data;
+    }
+}
+
+void Ppu::_flipBits(uint8_t& byte)
+{
+    auto copyByte = byte;
+    byte = 0x00;
+    byte |= (copyByte & 0x01) << 7;
+    byte |= (copyByte & 0x02) << 5;
+    byte |= (copyByte & 0x04) << 3;
+    byte |= (copyByte & 0x08) << 1;
+    byte |= (copyByte & 0x10) >> 1;
+    byte |= (copyByte & 0x20) >> 3;
+    byte |= (copyByte & 0x40) >> 5;
+    byte |= (copyByte & 0x80) >> 7;
 }

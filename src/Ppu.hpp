@@ -16,6 +16,7 @@
 #define PPU_FRAME_BUFFER_RGB_SIZE (PPU_FRAME_BUFFER_SIZE * 3)
 
 #define PPU_MAX_SPRITES 64
+#define PPU_MAX_SPRITES_SECONDARY 8
 
 enum class PpuRegisterAddress {
     Control,
@@ -156,6 +157,7 @@ public:
     // OAM Interface
     void writeOAMData(uint8_t address, uint8_t data);
     void readOAMData(uint8_t address, uint8_t& data);
+    void clearSecondaryOAMData(uint8_t data);
 
     // PPU registers
     PpuRegister registers;
@@ -175,6 +177,7 @@ private:
     void _loadShiftRegisters();
     void _moveShiftRegisters();
     void _getIndexFromShiftRegisters(uint8_t& pixelIndex, uint8_t& paletteIndex);
+    void _flipBits(uint8_t& byte);
 
     uint16_t _cycles = 0;
     uint16_t _scanLine = 0;
@@ -207,5 +210,14 @@ private:
 
     // Sprites
     SpriteInformation _sprites[PPU_MAX_SPRITES];
-    uint8_t _oamAddress;
+    SpriteInformation _spritesSecondary[PPU_MAX_SPRITES_SECONDARY];
+    uint8_t _oamAddress{0x00};
+    bool _spriteZeroNextScanLine{false};
+    bool _spriteZeroOnScanLine{false};
+    bool _spriteZeroUsed{false};
+    uint16_t _spritePatternAddress{0x0000};
+    uint8_t shiftRegisterLowSpriteTile[PPU_MAX_SPRITES_SECONDARY];
+    uint8_t shiftRegisterHighSpriteTile[PPU_MAX_SPRITES_SECONDARY];
+    uint8_t _spriteAttribute[PPU_MAX_SPRITES_SECONDARY];
+    uint8_t _spritePositionX[PPU_MAX_SPRITES_SECONDARY];
 };
