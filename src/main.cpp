@@ -1,3 +1,8 @@
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <linux/joystick.h>
+
 #include "GL/glut.h"
 #include "GL/gl.h"
 
@@ -5,6 +10,96 @@
 
 Nes nes;
 GLuint texture = 0;
+static int joystickFD0 = -1;
+static int joystickFD1 = -1;
+
+void readJoystick(uint8_t id)
+{
+    struct js_event event;
+    int fd = -1;
+    if ((id == 0) && (joystickFD0 >= 0)) {
+        fd = joystickFD0;
+    } else if ((id == 1) && (joystickFD1 >= 0)) {
+        fd = joystickFD1;
+    } else {
+        return;
+    }
+
+    ssize_t bytes = read(fd, &event, sizeof(event));
+    if (bytes == sizeof(event)) {
+        switch (event.type) {
+        case JS_EVENT_BUTTON:
+        {
+            switch (event.number) {
+            case 0:
+                nes.setControllerKey(id, NesButton::B, event.value);
+                break;
+            case 1:
+                nes.setControllerKey(id, NesButton::A, event.value);
+                break;
+            case 8:
+                nes.setControllerKey(id, NesButton::Select, event.value);
+                break;
+            case 9:
+                nes.setControllerKey(id, NesButton::Start, event.value);
+                break;
+            default:
+                break;
+            }
+            break;
+        }
+        case JS_EVENT_AXIS:
+        {
+            switch (event.number) {
+            case 0:
+            {
+                // Horizontal Axis
+                if (event.value > 0) {
+                    nes.setControllerKey(id, NesButton::Right, true);
+                    nes.setControllerKey(id, NesButton::Left, false);
+                } else if (event.value < 0) {
+                    nes.setControllerKey(id, NesButton::Left, true);
+                    nes.setControllerKey(id, NesButton::Right, false);
+                } else {
+                    nes.setControllerKey(id, NesButton::Right, false);
+                    nes.setControllerKey(id, NesButton::Left, false);
+                }
+                break;
+            }
+            case 1:
+            {
+                // Vertical Axis
+                if (event.value > 0) {
+                    nes.setControllerKey(id, NesButton::Down, true);
+                    nes.setControllerKey(id, NesButton::Up, false);
+                } else if (event.value < 0) {
+                    nes.setControllerKey(id, NesButton::Up, true);
+                    nes.setControllerKey(id, NesButton::Down, false);
+                } else {
+                    nes.setControllerKey(id, NesButton::Up, false);
+                    nes.setControllerKey(id, NesButton::Down, false);
+                }
+                break;
+            }
+            default:
+                break;
+            }
+            break;
+        }
+        default:
+            /* Ignore init events. */
+            break;
+        }
+    }
+}
+
+void joystick(unsigned int buttonmask, int x, int y, int z)
+{
+    // Controller #1
+    readJoystick(0);
+    // Controller #2
+    readJoystick(1);
+}
 
 void mapKeysToController(uint8_t key, bool state)
 {
@@ -129,6 +224,10 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
+    // Get a hold of the joystick inputs
+    joystickFD0 = open("/dev/input/js0", O_RDONLY | O_NONBLOCK);
+    joystickFD1 = open("/dev/input/js1", O_RDONLY | O_NONBLOCK);
+
     fprintf(stdout, "Mark NES Emulator\n");
 
     auto nesRomFile = std::string{argv[1]};
@@ -144,9 +243,17 @@ int main(int argc, char** argv)
     glutKeyboardUpFunc(&readReleasedKeys);
     glutSpecialFunc(&readPressedSpecialKeys);
     glutSpecialUpFunc(&readReleasedSpecialKeys);
+    glutJoystickFunc(&joystick, 10);
     glutDisplayFunc(&renderFrame);
     glutIdleFunc(&renderFrame);
     glutMainLoop();
+
+    if (joystickFD0 >= 0) {
+        close(joystickFD0);
+    }
+    if (joystickFD1 >= 0) {
+        close(joystickFD1);
+    }
 
     return EXIT_SUCCESS;
 }
