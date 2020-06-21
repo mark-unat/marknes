@@ -13,7 +13,7 @@ bool PpuBus::read(uint16_t address, uint8_t& data)
 {
     switch (address) {
     case patternTableBaseAddress ... patternTableEndAddress:
-        return _cartridge->readChrRom(address, data);
+        return _cartridge->readCHR(address, data);
     case nameTableBaseAddress ... nameTableEndAddress:
     {
         auto newAddress{address};
@@ -58,7 +58,7 @@ bool PpuBus::write(uint16_t address, uint8_t data)
 {
     switch (address) {
     case patternTableBaseAddress ... patternTableEndAddress:
-        return _cartridge->writeChrRom(address, data);
+        return _cartridge->writeCHR(address, data);
     case nameTableBaseAddress ... nameTableEndAddress:
     {
         auto newAddress{address};

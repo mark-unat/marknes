@@ -1,5 +1,6 @@
 #include "Cartridge.hpp"
 #include "Mapper000.hpp"
+#include "Mapper002.hpp"
 
 constexpr auto size8KB = 8 * 1024;
 constexpr auto size16KB = 16 * 1024;
@@ -25,7 +26,13 @@ Cartridge::Cartridge(std::string fileName)
         _prgRom.resize(_prgRomSize);
         file.read(reinterpret_cast<char*>(_prgRom.data()), _prgRomSize);
 
-        _chrRomSize = _nesHeader.chrRomChunks * size8KB;
+        if (_nesHeader.chrRomChunks == 0) {
+            // Used for RAM
+            _chrRomSize = size8KB;
+        } else {
+            // Used for ROM
+            _chrRomSize = _nesHeader.chrRomChunks * size8KB;
+        }
         _chrRom.resize(_chrRomSize);
         file.read(reinterpret_cast<char*>(_chrRom.data()), _chrRomSize);
 
@@ -34,7 +41,11 @@ Cartridge::Cartridge(std::string fileName)
         case 0:
             _mapper = std::make_shared<Mapper000>(_nesHeader.prgRomChunks, _nesHeader.chrRomChunks);
             break;
+        case 2:
+            _mapper = std::make_shared<Mapper002>(_nesHeader.prgRomChunks, _nesHeader.chrRomChunks);
+            break;
         default:
+            fprintf(stderr, "NES ROM Mapper [%d] not yet supported\n", _mapperID);
             break;
         }
 
@@ -44,10 +55,10 @@ Cartridge::Cartridge(std::string fileName)
 
 Cartridge::~Cartridge() {}
 
-bool Cartridge::readPrgRom(uint16_t address, uint8_t& data)
+bool Cartridge::readPRG(uint16_t address, uint8_t& data)
 {
     auto prgAddress = uint32_t{0};
-    if (_mapper->getPrgAddress(address, prgAddress)) {
+    if (_mapper->readPrg(address, prgAddress, data)) {
         data = _prgRom[prgAddress];
         return true;
     }
@@ -55,10 +66,10 @@ bool Cartridge::readPrgRom(uint16_t address, uint8_t& data)
     return false;
 }
 
-bool Cartridge::writePrgRom(uint16_t address, uint8_t data)
+bool Cartridge::writePRG(uint16_t address, uint8_t data)
 {
     auto prgAddress = uint32_t{0};
-    if (_mapper->getPrgAddress(address, prgAddress)) {
+    if (_mapper->writePrg(address, prgAddress, data)) {
         _prgRom[prgAddress] = data;
         return true;
     }
@@ -66,10 +77,10 @@ bool Cartridge::writePrgRom(uint16_t address, uint8_t data)
     return false;
 }
 
-bool Cartridge::readChrRom(uint16_t address, uint8_t& data)
+bool Cartridge::readCHR(uint16_t address, uint8_t& data)
 {
     auto chrAddress = uint32_t{0};
-    if (_mapper->getChrAddress(address, chrAddress)) {
+    if (_mapper->readChr(address, chrAddress)) {
         data = _chrRom[chrAddress];
         return true;
     }
@@ -77,13 +88,20 @@ bool Cartridge::readChrRom(uint16_t address, uint8_t& data)
     return false;
 }
 
-bool Cartridge::writeChrRom(uint16_t address, uint8_t data)
+bool Cartridge::writeCHR(uint16_t address, uint8_t data)
 {
     auto chrAddress = uint32_t{0};
-    if (_mapper->getChrAddress(address, chrAddress)) {
+    if (_mapper->writeChr(address, chrAddress)) {
         _chrRom[chrAddress] = data;
         return true;
     }
 
     return false;
+}
+
+void Cartridge::reset()
+{
+    if (_mapper != nullptr) {
+        _mapper->reset();
+    }
 }

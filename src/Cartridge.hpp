@@ -56,20 +56,21 @@ public:
 
     bool isValid() const { return _isValid; }
     MirroringMode getMirroringMode() const { return _mirroringMode; }
-    bool readPrgRom(uint16_t address, uint8_t& data);
-    bool writePrgRom(uint16_t address, uint8_t data);
-    bool readChrRom(uint16_t address, uint8_t& data);
-    bool writeChrRom(uint16_t address, uint8_t data);
+    bool readPRG(uint16_t address, uint8_t& data);
+    bool writePRG(uint16_t address, uint8_t data);
+    bool readCHR(uint16_t address, uint8_t& data);
+    bool writeCHR(uint16_t address, uint8_t data);
+    void reset();
 
 private:
     std::string _fileName;
     NesHeader _nesHeader;
     uint8_t _mapperID{0};
-    uint16_t _prgRomSize{0};
-    uint16_t _chrRomSize{0};
+    uint32_t _prgRomSize{0};
+    uint32_t _chrRomSize{0};
     bool _isValid{false};
     MirroringMode _mirroringMode{MirroringMode::Horizontal};
     std::vector<uint8_t> _prgRom;
     std::vector<uint8_t> _chrRom;
-    std::shared_ptr<IMapper> _mapper;
+    std::shared_ptr<IMapper> _mapper{nullptr};
 };

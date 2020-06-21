@@ -10,6 +10,7 @@ SRCS := \
 	src/CpuBus.cpp \
 	src/Cpu.cpp \
 	src/Mapper000.cpp \
+	src/Mapper002.cpp \
 	src/Memory2KB.cpp \
 	src/Controller.cpp \
 	src/NameTable.cpp \

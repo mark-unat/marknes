@@ -50,6 +50,7 @@ void Nes::renderFrame()
 
 void Nes::reset()
 {
+    _cartridge->reset();
     _cpu->reset();
     _ppu->reset();
     _counter = 0;

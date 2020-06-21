@@ -21,7 +21,7 @@ bool CpuBus::read(uint16_t address, uint8_t& data)
     case controller1Address ... controller2Address:
         return _controller->read(address, data);
     case cartridgeBaseAddress ... cartridgeEndAddress:
-        return _cartridge->readPrgRom(address, data);
+        return _cartridge->readPRG(address, data);
     default:
         break;
     }
@@ -39,7 +39,7 @@ bool CpuBus::write(uint16_t address, uint8_t data)
     case controller1Address ... controller2Address:
         return _controller->write(address, data);
     case cartridgeBaseAddress ... cartridgeEndAddress:
-        return _cartridge->writePrgRom(address, data);
+        return _cartridge->writePRG(address, data);
     default:
         break;
     }
