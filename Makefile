@@ -2,7 +2,7 @@
 
 OUT := marknes
 
-CPPFLAGS := -Wall
+CPPFLAGS := -Wall -std=c++14
 LDFLAGS := -lglut -lGL
 
 SRCS := \
