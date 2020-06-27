@@ -3,6 +3,10 @@
 OUT := marknes
 
 CPPFLAGS := -Wall -std=c++14
+
+# To add sidebar in our window
+CPPFLAGS += -Ires/ -DSIDEBAR
+
 LDFLAGS := -lglut -lGL
 
 SRCS := \

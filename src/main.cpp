@@ -1,10 +1,15 @@
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <linux/joystick.h>
 
 #include "GL/glut.h"
 #include "GL/gl.h"
+
+#ifdef SIDEBAR
+#include "sidebar.h"
+#endif
 
 #include "Nes.hpp"
 
@@ -12,6 +17,10 @@ Nes nes;
 GLuint texture = 0;
 static int joystickFD0 = -1;
 static int joystickFD1 = -1;
+
+std::vector<uint8_t> displayBuffer;
+static uint32_t displayWidth = 0;
+static uint32_t displayHeight = 0;
 
 void readJoystick(uint8_t id)
 {
@@ -172,6 +181,49 @@ void readReleasedSpecialKeys(int key, int x, int y)
     mapKeysToController(static_cast<uint8_t>(key), false);
 }
 
+void initializeDisplay()
+{
+    displayHeight = nes.getHeight();
+    displayWidth = nes.getWidth();
+
+#ifdef SIDEBAR
+    // If we have sidebar enabled, we add
+    // two extra width's on both sides.
+    displayWidth += 2 * sideBarWidth;
+    displayBuffer.resize(displayWidth * displayHeight * 3);
+#endif
+}
+
+uint8_t* getDisplayBuffer()
+{
+    uint8_t* nesFrameBuffer = nes.getFrameBuffer();
+
+#ifdef SIDEBAR
+    uint32_t pixelIndex = 0;
+    for (uint32_t row = 0; row < nes.getHeight(); row++) {
+        // Left sidebar
+        for (uint32_t col = (row * sideBarWidth * 3); col < ((row + 1) * sideBarWidth * 3); col++) {
+            displayBuffer[pixelIndex++] = sideBar[col];
+        }
+
+        // Main NES window
+        for (uint32_t col = (row * nes.getWidth() * 3); col < ((row + 1) * nes.getWidth() * 3); col++) {
+            displayBuffer[pixelIndex++] = nesFrameBuffer[col];
+        }
+
+        // Right sidebar
+        for (uint32_t col = (row * sideBarWidth * 3); col < ((row + 1) * sideBarWidth * 3); col++) {
+            displayBuffer[pixelIndex++] = sideBar[col];
+        }
+    }
+
+    // Return this buffer to have the sidebar
+    nesFrameBuffer = displayBuffer.data();
+#endif
+
+    return nesFrameBuffer;
+}
+
 void renderFrame()
 {
     nes.renderFrame();
@@ -179,6 +231,8 @@ void renderFrame()
     glClearColor(1, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
+
+    uint8_t* buffer = getDisplayBuffer();
 
     if (!texture) {
         glGenTextures(1, &texture);
@@ -188,11 +242,11 @@ void renderFrame()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, nes.getWidth(), nes.getHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE,
-                     nes.getFrameBuffer());
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, displayWidth, displayHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, buffer);
     } else {
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, nes.getWidth(), nes.getHeight(), GL_RGB, GL_UNSIGNED_BYTE,
-                        nes.getFrameBuffer());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, displayWidth, displayHeight, GL_RGB, GL_UNSIGNED_BYTE, buffer);
     }
 
     glEnable(GL_TEXTURE_2D);
@@ -234,9 +288,11 @@ int main(int argc, char** argv)
     nes.load(nesRomFile);
     nes.reset();
 
+    initializeDisplay();
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE);
-    glutInitWindowSize(nes.getWidth(), nes.getHeight());
+    glutInitWindowSize(displayWidth, displayHeight);
     glutInitWindowPosition(0, 0);
     glutCreateWindow(nes.getName());
     glutKeyboardFunc(&readPressedKeys);
