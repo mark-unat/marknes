@@ -7,9 +7,10 @@ CPPFLAGS := -Wall -std=c++14
 # To add sidebar in our window
 CPPFLAGS += -Ires/ -DSIDEBAR
 
-LDFLAGS := -lglut -lGL
+LDFLAGS := -lglut -lGL -lopenal -lpthread
 
 SRCS := \
+	src/AudioHw.cpp \
 	src/Cartridge.cpp \
 	src/CpuBus.cpp \
 	src/Cpu.cpp \

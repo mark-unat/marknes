@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <linux/joystick.h>
 
+#include "GL/freeglut.h"
 #include "GL/glut.h"
 #include "GL/gl.h"
 
@@ -294,6 +295,7 @@ int main(int argc, char** argv)
     glutInitDisplayMode(GLUT_SINGLE);
     glutInitWindowSize(displayWidth, displayHeight);
     glutInitWindowPosition(0, 0);
+    glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
     glutCreateWindow(nes.getName());
     glutKeyboardFunc(&readPressedKeys);
     glutKeyboardUpFunc(&readReleasedKeys);
