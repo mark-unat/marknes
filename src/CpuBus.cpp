@@ -1,10 +1,12 @@
 #include "CpuBus.hpp"
 
 CpuBus::CpuBus(std::shared_ptr<IMemory> memory,
+        std::shared_ptr<Apu> apu,
         std::shared_ptr<Ppu> ppu,
         std::shared_ptr<Cartridge> cartridge,
         std::shared_ptr<IDevice> controller)
 : _memory{memory}
+, _apu{apu}
 , _ppu{ppu}
 , _cartridge{cartridge}
 , _controller{controller}
@@ -36,6 +38,8 @@ bool CpuBus::write(uint16_t address, uint8_t data)
         return _memory->write(address, data);
     case ppuBaseAddress ... ppuEndAddress:
         return _ppu->write(address, data);
+    case apuBaseAddress ... apuEndAddress:
+        return _apu->write(address, data);
     case controller1Address ... controller2Address:
         return _controller->write(address, data);
     case cartridgeBaseAddress ... cartridgeEndAddress:

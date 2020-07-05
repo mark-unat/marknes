@@ -11,6 +11,7 @@ LDFLAGS := -lglut -lGL -lopenal -lpthread
 
 SRCS := \
 	src/AudioHw.cpp \
+	src/Apu.cpp \
 	src/Cartridge.cpp \
 	src/CpuBus.cpp \
 	src/Cpu.cpp \

@@ -1,0 +1,300 @@
+#include "math.h"
+
+#include "Apu.hpp"
+
+// Reference: https://wiki.nesdev.com/w/index.php/APU
+constexpr auto pulse1Address0 = 0x4000;
+constexpr auto pulse1Address1 = 0x4001;
+constexpr auto pulse1Address2 = 0x4002;
+constexpr auto pulse1Address3 = 0x4003;
+constexpr auto pulse2Address0 = 0x4004;
+constexpr auto pulse2Address1 = 0x4005;
+constexpr auto pulse2Address2 = 0x4006;
+constexpr auto pulse2Address3 = 0x4007;
+constexpr auto triangleAddress0 = 0x4008;
+constexpr auto triangleAddress1 = 0x400A;
+constexpr auto triangleAddress2 = 0x400B;
+constexpr auto noiseAddress0 = 0x400C;
+constexpr auto noiseAddress1 = 0x400E;
+constexpr auto noiseAddress2 = 0x400F;
+constexpr auto DMCAddress0 = 0x4010;
+constexpr auto DMCAddress1 = 0x4011;
+constexpr auto DMCAddress2 = 0x4012;
+constexpr auto DMCAddress3 = 0x4013;
+constexpr auto apuControlAddress = 0x4015;
+
+constexpr auto apuFrequency = 894886.5f;
+constexpr uint8_t lengthCounterTable[] = {
+    0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06,
+    0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
+    0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16,
+    0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E,
+};
+
+Apu::Apu()
+{
+}
+
+Apu::~Apu()
+{
+}
+
+bool Apu::read(uint16_t address, uint8_t& data)
+{
+    data = 0x00;
+    return true;
+}
+
+bool Apu::write(uint16_t address, uint8_t data)
+{
+    auto lock = LockGuard{_mutex};
+    switch (address) {
+    case pulse1Address0:
+        pulse1.register0 = data;
+        pulse1.dutyCycle = getDutyCycle(pulse1.Register0Flag.dutyCycle);
+        if (pulse1.Register0Flag.constantEnvelopeFlag) {
+            pulse1.volume = pulse1.Register0Flag.envelopePeriod;
+        } else {
+            pulse1.envelopeDecay = 15;
+            pulse1.volume = pulse1.envelopeDecay;
+        }
+        break;
+    case pulse1Address1:
+        pulse1.register1 = data;
+        break;
+    case pulse1Address2:
+        pulse1.register2 = data;
+        pulse1.period = (pulse1.period & 0x0700) | pulse1.Register2Flag.pulseTimerLow;
+        break;
+    case pulse1Address3:
+        pulse1.register3 = data;
+        pulse1.period = (static_cast<uint16_t>(pulse1.Register3Flag.pulseTimerHigh) << 8) | (pulse1.period & 0xFF);
+        pulse1.sweepTarget = pulse1.period;
+        pulse1.envelopeStart = true;
+        if (registers.controlFlag.pulse1Enable) {
+            pulse1.lengthCounter = lengthCounterTable[pulse1.Register3Flag.lengthCounter];
+        }
+        break;
+    case pulse2Address0:
+        pulse2.register0 = data;
+        pulse2.dutyCycle = getDutyCycle(pulse2.Register0Flag.dutyCycle);
+        if (pulse2.Register0Flag.constantEnvelopeFlag) {
+            pulse2.volume = pulse2.Register0Flag.envelopePeriod;
+        } else {
+            pulse2.envelopeDecay = 15;
+            pulse2.volume = pulse2.envelopeDecay;
+        }
+        break;
+    case pulse2Address1:
+        pulse2.register1 = data;
+        break;
+    case pulse2Address2:
+        pulse2.register2 = data;
+        pulse2.period = (pulse2.period & 0x0700) | pulse2.Register2Flag.pulseTimerLow;
+        break;
+    case pulse2Address3:
+        pulse2.register3 = data;
+        pulse2.period = (static_cast<uint16_t>(pulse2.Register3Flag.pulseTimerHigh) << 8) | (pulse2.period & 0xFF);
+        pulse2.sweepTarget = pulse2.period;
+        pulse2.envelopeStart = true;
+        if (registers.controlFlag.pulse2Enable) {
+            pulse2.lengthCounter = lengthCounterTable[pulse2.Register3Flag.lengthCounter];
+        }
+        break;
+    case apuControlAddress:
+        registers.control = data;
+        if (!registers.controlFlag.pulse1Enable) {
+            pulse1.lengthCounter = 0;
+        }
+        if (!registers.controlFlag.pulse2Enable) {
+            pulse2.lengthCounter = 0;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return true;
+}
+
+// Execute one clock cycle
+void Apu::tick()
+{
+    // Reference: https://wiki.nesdev.com/w/index.php/APU_Frame_Counter
+    // The APU runs half the rate of CPU, so 2 CPU cycles = 1 APU cycle.
+
+    auto lock = LockGuard{_mutex};
+
+    _frameCounter++;
+
+    /* Mode 0: 4-Step Sequence */
+    switch (_frameCounter) {
+    case 3729:
+        doQuarterFrame();
+        break;
+    case 7457:
+        doQuarterFrame();
+        doHalfFrame();
+        break;
+    case 11186:
+        doQuarterFrame();
+        break;
+    case 14916:
+        doQuarterFrame();
+        doHalfFrame();
+        _frameCounter = 0;
+        break;
+    }
+}
+
+void Apu::reset()
+{
+}
+
+float Apu::getMixedOutput(float time)
+{
+    auto lock = LockGuard{_mutex};
+    auto outputPulse1 = getPulseOutput(pulse1, time);
+    auto outputPulse2 = getPulseOutput(pulse2, time);
+
+    return (outputPulse1 + outputPulse2) * 0.1f;
+}
+
+float Apu::getPulseOutput(Pulse pulse, float time)
+{
+    auto outputPulse = 0.0f;
+    if (pulse.lengthCounter > 0) {
+        // Period is 8 times the period because we are shifting every bit on a byte (8-bit)
+        auto period = (8.0f * static_cast<float>(pulse.period)) / apuFrequency;
+        // Amplitude is scaled to 15 since that's our maximum envelope decay (4-bit)
+        auto amplitude = static_cast<float>(pulse.volume) / 15.0f;
+        // Compute cycle percentage based from period and time and from there we
+        // know how to generate pulse wave based on the given duty cycle
+        auto cyclePercentage = (time - floor(time / period) * period) / period;
+        if (pulse.dutyCycle < 0.0f) {
+            // This is for negative duty cycle waveform
+            if (cyclePercentage <= (-1.0f * pulse.dutyCycle)) {
+                outputPulse = -1.0f * amplitude;
+            } else {
+                outputPulse = 1.0f * amplitude;
+            }
+        } else {
+            if (cyclePercentage <= pulse.dutyCycle) {
+                outputPulse = 1.0f * amplitude;
+            } else {
+                outputPulse = -1.0f * amplitude;
+            }
+        }
+    }
+
+    return outputPulse;
+}
+
+float Apu::getDutyCycle(uint8_t dutyCycle)
+{
+    auto dutyCycleValue = float{0.0f};
+
+    switch (dutyCycle) {
+    case 0x00:
+        // 12.5% waveform
+        dutyCycleValue = 0.125f;
+        break;
+    case 0x01:
+        // 25% waveform
+        dutyCycleValue = 0.250f;
+        break;
+    case 0x02:
+        // 50% waveform
+        dutyCycleValue = 0.500f;
+        break;
+    case 0x03:
+        // 25% negated waveform
+        dutyCycleValue = -0.250f;
+        break;
+    default:
+        break;
+    }
+
+    return dutyCycleValue;
+}
+
+void Apu::doQuarterFrame()
+{
+    doEnvelope(pulse1);
+    doEnvelope(pulse2);
+}
+
+void Apu::doHalfFrame()
+{
+    doSweep(pulse1);
+    doSweep(pulse2);
+    doLengthCounters(pulse1);
+    doLengthCounters(pulse2);
+}
+
+void Apu::doEnvelope(Pulse& pulse)
+{
+    if (pulse.envelopeStart) {
+        pulse.envelopeStart = false;
+        pulse.envelopeDecay = 15;
+        pulse.envelopeCounter = pulse.Register0Flag.envelopePeriod;
+    } else {
+        if (pulse.envelopeCounter > 0) {
+            pulse.envelopeCounter--;
+        } else {
+            pulse.envelopeCounter = pulse.Register0Flag.envelopePeriod;
+
+            if (pulse.envelopeDecay > 0) {
+                pulse.envelopeDecay--;
+            }
+
+            if (pulse.Register0Flag.lengthCounterHalt) {
+                pulse.envelopeDecay = 15;
+            }
+        }
+    }
+
+    if (pulse.Register0Flag.constantEnvelopeFlag) {
+        pulse.volume = pulse.Register0Flag.envelopePeriod;
+    } else {
+        pulse.volume = pulse.envelopeDecay;
+    }
+}
+
+void Apu::doSweep(Pulse& pulse)
+{
+    if (pulse.Register1Flag.sweepEnableFlag) {
+        if (!pulse.sweepDone && pulse.sweepCounter == 0) {
+            auto periodDelta = pulse.sweepTarget >> pulse.Register1Flag.sweepShiftCount;
+            if (pulse.Register1Flag.sweepNegateFlag) {
+                pulse.sweepTarget -= periodDelta - 1;
+            } else {
+                pulse.sweepTarget += periodDelta;
+            }
+
+            pulse.period = pulse.sweepTarget;
+        }
+    }
+
+    if (pulse.sweepCounter == 0) {
+        pulse.sweepCounter = pulse.Register1Flag.sweepPeriod;
+    } else {
+        pulse.sweepCounter--;
+    }
+    if (pulse.sweepTarget > 0x7FF || pulse.period < 8) {
+        pulse.sweepDone = true;
+    } else {
+        pulse.sweepDone = false;
+    }
+}
+
+void Apu::doLengthCounters(Pulse& pulse)
+{
+    if (pulse.lengthCounter > 0) {
+        if (!registers.controlFlag.pulse1Enable) {
+            pulse.lengthCounter = 0;
+        } else if (!pulse.Register0Flag.lengthCounterHalt) {
+            pulse.lengthCounter--;
+        }
+    }
+}

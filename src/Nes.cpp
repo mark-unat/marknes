@@ -9,7 +9,7 @@ void Nes::load(std::string fileName)
     _fileName = std::move(fileName);
 
     _cpuRam = std::make_shared<Memory2KB>();
-    //_apu = std::make_shared<Apu>();
+    _apu = std::make_shared<Apu>();
     _controller = std::make_shared<Controller>();
 
     _nameTable = std::make_shared<NameTable>();
@@ -19,8 +19,11 @@ void Nes::load(std::string fileName)
     _ppuBus = std::make_shared<PpuBus>(_nameTable, _paletteTable, _cartridge);
     _ppu = std::make_shared<Ppu>(_ppuBus, _cartridge);
 
-    _cpuBus = std::make_shared<CpuBus>(_cpuRam, _ppu, _cartridge, _controller /*, _apu*/);
+    _cpuBus = std::make_shared<CpuBus>(_cpuRam, _apu, _ppu, _cartridge, _controller);
     _cpu = std::make_shared<Cpu>(_cpuBus, _ppu);
+
+    _audioHw = std::make_shared<AudioHw>(44100, 8, 512);
+    _audioHw->setReadSampleCallback([this](float time) { return _apu->getMixedOutput(time); });
 }
 
 void Nes::renderFrame()
@@ -36,6 +39,13 @@ void Nes::renderFrame()
             // One CPU cycle
             _cpu->tick(isOddCycle);
         }
+
+        // PPU runs 6 times faster than APU
+        if (_counter % 6 == 0) {
+            // One APU cycle
+            _apu->tick();
+        }
+
         _counter++;
         if (_counter >= 0xFF) {
             _counter = 0;

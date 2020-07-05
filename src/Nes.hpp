@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "AudioHw.hpp"
 #include "Memory2KB.hpp"
 #include "Controller.hpp"
 #include "CpuBus.hpp"
@@ -9,6 +10,7 @@
 #include "PaletteTable.hpp"
 #include "PpuBus.hpp"
 #include "Cartridge.hpp"
+#include "Apu.hpp"
 #include "Ppu.hpp"
 #include "Cpu.hpp"
 
@@ -48,6 +50,8 @@ private:
     std::shared_ptr<IDevice> _ppuBus;
 
     std::shared_ptr<Cartridge> _cartridge;
+    std::shared_ptr<AudioHw> _audioHw;
+    std::shared_ptr<Apu> _apu;
     std::shared_ptr<Ppu> _ppu;
     std::shared_ptr<Cpu> _cpu;
 
