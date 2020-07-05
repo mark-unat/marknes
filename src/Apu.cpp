@@ -30,6 +30,12 @@ constexpr uint8_t lengthCounterTable[] = {
     0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16,
     0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E,
 };
+constexpr uint8_t triangleStep[] = {
+    15, 14, 13, 12, 11, 10, 9,  8,
+    7,  6,  5,  4,  3,  2,  1,  0,
+    0,  1,  2,  3,  4,  5,  6,  7,
+    8,  9,  10, 11, 12, 13, 14, 15,
+};
 
 Apu::Apu()
 {
@@ -101,6 +107,21 @@ bool Apu::write(uint16_t address, uint8_t data)
             pulse2.lengthCounter = lengthCounterTable[pulse2.Register3Flag.lengthCounter];
         }
         break;
+    case triangleAddress0:
+        triangle.register0 = data;
+        break;
+    case triangleAddress1:
+        triangle.register1 = data;
+        triangle.period = (triangle.period & 0x0700) | triangle.Register1Flag.triangleTimerLow;
+        break;
+    case triangleAddress2:
+        triangle.register2 = data;
+        triangle.period = (static_cast<uint16_t>(triangle.Register2Flag.triangleTimerHigh) << 8) | (triangle.period & 0xFF);
+        if (registers.controlFlag.triangleEnable) {
+            triangle.lengthCounter = lengthCounterTable[triangle.Register2Flag.lengthCounter];
+        }
+        triangle.linearCounterReload = true;
+        break;
     case apuControlAddress:
         registers.control = data;
         if (!registers.controlFlag.pulse1Enable) {
@@ -108,6 +129,9 @@ bool Apu::write(uint16_t address, uint8_t data)
         }
         if (!registers.controlFlag.pulse2Enable) {
             pulse2.lengthCounter = 0;
+        }
+        if (!registers.controlFlag.triangleEnable) {
+            triangle.lengthCounter = 0;
         }
         break;
     default:
@@ -156,8 +180,9 @@ float Apu::getMixedOutput(float time)
     auto lock = LockGuard{_mutex};
     auto outputPulse1 = getPulseOutput(pulse1, time);
     auto outputPulse2 = getPulseOutput(pulse2, time);
+    auto outputTriangle = getTriangleOutput(triangle, time);
 
-    return (outputPulse1 + outputPulse2) * 0.1f;
+    return (outputPulse1 * 0.10f + outputPulse2 * 0.10f + outputTriangle * 0.25f) * 0.25f;
 }
 
 float Apu::getPulseOutput(Pulse pulse, float time)
@@ -190,6 +215,22 @@ float Apu::getPulseOutput(Pulse pulse, float time)
     return outputPulse;
 }
 
+float Apu::getTriangleOutput(Triangle triangle, float time)
+{
+    auto outputTriangle = 0.0f;
+    if ((triangle.lengthCounter > 0) && (triangle.linearCounter > 0)) {
+        // Period is 32 times the period because we have a 32-step sequence
+        auto period = (32.0f * static_cast<float>(triangle.period)) / apuFrequency;
+        // Compute cycle percentage based from period and time
+        auto cyclePercentage = (time - floor(time / period) * period) / period;
+        // Convert cycle percentage to which step we are in triangle sequence
+        auto index = static_cast<uint8_t>(floor(cyclePercentage * 32.0f));
+        // Normalized to 1.0f and centered at zero
+        outputTriangle = (static_cast<float>(triangleStep[index]) / 15.0f) - 0.5f;
+    }
+
+    return outputTriangle;
+}
 float Apu::getDutyCycle(uint8_t dutyCycle)
 {
     auto dutyCycleValue = float{0.0f};
@@ -222,14 +263,16 @@ void Apu::doQuarterFrame()
 {
     doEnvelope(pulse1);
     doEnvelope(pulse2);
+    doLinearCounters(triangle);
 }
 
 void Apu::doHalfFrame()
 {
+    doLengthCounters(pulse1, registers.controlFlag.pulse1Enable);
+    doLengthCounters(pulse2, registers.controlFlag.pulse2Enable);
+    doLengthCounters(triangle, registers.controlFlag.triangleEnable);
     doSweep(pulse1);
     doSweep(pulse2);
-    doLengthCounters(pulse1);
-    doLengthCounters(pulse2);
 }
 
 void Apu::doEnvelope(Pulse& pulse)
@@ -288,13 +331,37 @@ void Apu::doSweep(Pulse& pulse)
     }
 }
 
-void Apu::doLengthCounters(Pulse& pulse)
+void Apu::doLengthCounters(Pulse& pulse, bool enable)
 {
     if (pulse.lengthCounter > 0) {
-        if (!registers.controlFlag.pulse1Enable) {
+        if (!enable) {
             pulse.lengthCounter = 0;
         } else if (!pulse.Register0Flag.lengthCounterHalt) {
             pulse.lengthCounter--;
         }
+    }
+}
+
+void Apu::doLengthCounters(Triangle& triangle, bool enable)
+{
+    if (triangle.lengthCounter > 0) {
+        if (!enable) {
+            triangle.lengthCounter = 0;
+        } else if (!triangle.Register0Flag.lengthCounterHalt) {
+            triangle.lengthCounter--;
+        }
+    }
+}
+
+void Apu::doLinearCounters(Triangle& triangle)
+{
+    if (triangle.linearCounterReload) {
+        triangle.linearCounter = triangle.Register0Flag.linearCounterReload;
+    } else if (triangle.linearCounter > 0) {
+        triangle.linearCounter--;
+    }
+
+    if (!triangle.Register0Flag.lengthCounterHalt) {
+        triangle.linearCounterReload = false;
     }
 }
