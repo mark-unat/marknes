@@ -29,7 +29,7 @@ enum class PpuRegisterAddress {
     VRAMData,
 };
 
-typedef struct ControlFlags {
+struct ControlFlags {
     bool nameTableXAddress : 1;
     bool nameTableYAddress : 1;
     bool vramAddressIncrement : 1;
@@ -38,9 +38,9 @@ typedef struct ControlFlags {
     bool spriteSize : 1;
     bool masterSalveSelect : 1;
     bool NMIEnabledOnVBlank : 1;
-} ControlFlags;
+};
 
-typedef struct MaskFlags {
+struct MaskFlags {
     bool greyScale : 1;
     bool showBackgroundLeft : 1;
     bool showSpritesLeft : 1;
@@ -49,25 +49,25 @@ typedef struct MaskFlags {
     bool emphasizeRed : 1;
     bool emphasizeGreen : 1;
     bool emphasizeBlue : 1;
-} MaskFlags;
+};
 
-typedef struct PpuStatusFlags {
+struct PpuStatusFlags {
     uint8_t unused : 5;
     bool spriteOverflow : 1;
     bool spriteZeroHit : 1;
     bool verticalBlankFlag : 1;
-} PpuStatusFlags;
+};
 
-typedef struct PpuVramFlags {
+struct PpuVramFlags {
     uint16_t coarseXScroll : 5;
     uint16_t coarseYScroll : 5;
     uint16_t nameTableXAddress : 1;
     uint16_t nameTableYAddress : 1;
     uint16_t fineYScroll : 3;
     uint16_t unused : 1;
-} PpuVramFlags;
+};
 
-typedef struct PpuRegister {
+struct PpuRegister {
     union {
         uint8_t control;
         ControlFlags controlFlag;
@@ -95,39 +95,39 @@ typedef struct PpuRegister {
     bool vramAddressLatch;
     uint8_t currVramData;
     uint8_t tempVramData;
-} PpuRegister;
+};
 
-typedef struct Pixel {
+struct Pixel {
     uint8_t red;
     uint8_t green;
     uint8_t blue;
-} Pixel;
+};
 
-typedef struct Tile {
+struct Tile {
     Pixel pixel[8 * 8];
-} Tile;
+};
 
-typedef struct PatternTableTile {
+struct PatternTableTile {
     Tile tile[16 * 16];
-} PatternTableTile;
+};
 
-typedef struct NameTableTile {
+struct NameTableTile {
     Tile tile[32 * 30];
-} NameTableTile;
+};
 
 // The OAM (Object Attribute Memory) is internal memory inside the PPU that
 // contains a display list of up to 64 sprites, where each sprite's information
 // occupies 4 bytes.
 // Reference: https://wiki.nesdev.com/w/index.php/PPU_OAM
-typedef struct SpriteAttributeFlags {
+struct SpriteAttributeFlags {
     uint8_t spritePaletteIndex : 2;
     uint8_t unused : 3;
     bool isBehindBackground : 1;
     bool isHorizontalFlip : 1;
     bool isVerticalFlip : 1;
-} SpriteAttributeFlags;
+};
 
-typedef struct SpriteInformation {
+struct SpriteInformation {
     uint8_t positionY;
     uint8_t tileIndex;
     union {
@@ -135,7 +135,7 @@ typedef struct SpriteInformation {
         SpriteAttributeFlags attributeFlag;
     };
     uint8_t positionX;
-} SpriteInformation;
+};
 
 class Ppu {
 public:

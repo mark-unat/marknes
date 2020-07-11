@@ -13,7 +13,7 @@
  * programs. It is often called the iNES file or header format. The details can
  * be found: https://wiki.nesdev.com/w/index.php/INES
  */
-typedef struct NesHeader {
+struct NesHeader {
     uint8_t magic[4];
     uint8_t prgRomChunks;
     uint8_t chrRomChunks;
@@ -40,7 +40,7 @@ typedef struct NesHeader {
     uint8_t tvSystem1;
     uint8_t tvSystem2;
     uint8_t unused[5];
-} NesHeader;
+};
 
 enum class MirroringMode {
     Horizontal,

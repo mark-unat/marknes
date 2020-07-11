@@ -56,82 +56,82 @@ bool Apu::write(uint16_t address, uint8_t data)
     auto lock = LockGuard{_mutex};
     switch (address) {
     case pulse1Address0:
-        pulse1.register0 = data;
-        pulse1.dutyCycle = getDutyCycle(pulse1.Register0Flag.dutyCycle);
-        if (pulse1.Register0Flag.constantEnvelopeFlag) {
-            pulse1.volume = pulse1.Register0Flag.envelopePeriod;
+        _pulse1.register0 = data;
+        _pulse1.dutyCycle = getDutyCycle(_pulse1.Register0Flag.dutyCycle);
+        if (_pulse1.Register0Flag.constantEnvelopeFlag) {
+            _pulse1.volume = _pulse1.Register0Flag.envelopePeriod;
         } else {
-            pulse1.envelopeDecay = 15;
-            pulse1.volume = pulse1.envelopeDecay;
+            _pulse1.envelopeDecay = 15;
+            _pulse1.volume = _pulse1.envelopeDecay;
         }
         break;
     case pulse1Address1:
-        pulse1.register1 = data;
+        _pulse1.register1 = data;
         break;
     case pulse1Address2:
-        pulse1.register2 = data;
-        pulse1.period = (pulse1.period & 0x0700) | pulse1.Register2Flag.pulseTimerLow;
+        _pulse1.register2 = data;
+        _pulse1.period = (_pulse1.period & 0x0700) | _pulse1.Register2Flag.pulseTimerLow;
         break;
     case pulse1Address3:
-        pulse1.register3 = data;
-        pulse1.period = (static_cast<uint16_t>(pulse1.Register3Flag.pulseTimerHigh) << 8) | (pulse1.period & 0xFF);
-        pulse1.sweepTarget = pulse1.period;
-        pulse1.envelopeStart = true;
-        if (registers.controlFlag.pulse1Enable) {
-            pulse1.lengthCounter = lengthCounterTable[pulse1.Register3Flag.lengthCounter];
+        _pulse1.register3 = data;
+        _pulse1.period = (static_cast<uint16_t>(_pulse1.Register3Flag.pulseTimerHigh) << 8) | (_pulse1.period & 0xFF);
+        _pulse1.sweepTarget = _pulse1.period;
+        _pulse1.envelopeStart = true;
+        if (_registers.controlFlag.pulse1Enable) {
+            _pulse1.lengthCounter = lengthCounterTable[_pulse1.Register3Flag.lengthCounter];
         }
         break;
     case pulse2Address0:
-        pulse2.register0 = data;
-        pulse2.dutyCycle = getDutyCycle(pulse2.Register0Flag.dutyCycle);
-        if (pulse2.Register0Flag.constantEnvelopeFlag) {
-            pulse2.volume = pulse2.Register0Flag.envelopePeriod;
+        _pulse2.register0 = data;
+        _pulse2.dutyCycle = getDutyCycle(_pulse2.Register0Flag.dutyCycle);
+        if (_pulse2.Register0Flag.constantEnvelopeFlag) {
+            _pulse2.volume = _pulse2.Register0Flag.envelopePeriod;
         } else {
-            pulse2.envelopeDecay = 15;
-            pulse2.volume = pulse2.envelopeDecay;
+            _pulse2.envelopeDecay = 15;
+            _pulse2.volume = _pulse2.envelopeDecay;
         }
         break;
     case pulse2Address1:
-        pulse2.register1 = data;
+        _pulse2.register1 = data;
         break;
     case pulse2Address2:
-        pulse2.register2 = data;
-        pulse2.period = (pulse2.period & 0x0700) | pulse2.Register2Flag.pulseTimerLow;
+        _pulse2.register2 = data;
+        _pulse2.period = (_pulse2.period & 0x0700) | _pulse2.Register2Flag.pulseTimerLow;
         break;
     case pulse2Address3:
-        pulse2.register3 = data;
-        pulse2.period = (static_cast<uint16_t>(pulse2.Register3Flag.pulseTimerHigh) << 8) | (pulse2.period & 0xFF);
-        pulse2.sweepTarget = pulse2.period;
-        pulse2.envelopeStart = true;
-        if (registers.controlFlag.pulse2Enable) {
-            pulse2.lengthCounter = lengthCounterTable[pulse2.Register3Flag.lengthCounter];
+        _pulse2.register3 = data;
+        _pulse2.period = (static_cast<uint16_t>(_pulse2.Register3Flag.pulseTimerHigh) << 8) | (_pulse2.period & 0xFF);
+        _pulse2.sweepTarget = _pulse2.period;
+        _pulse2.envelopeStart = true;
+        if (_registers.controlFlag.pulse2Enable) {
+            _pulse2.lengthCounter = lengthCounterTable[_pulse2.Register3Flag.lengthCounter];
         }
         break;
     case triangleAddress0:
-        triangle.register0 = data;
+        _triangle.register0 = data;
         break;
     case triangleAddress1:
-        triangle.register1 = data;
-        triangle.period = (triangle.period & 0x0700) | triangle.Register1Flag.triangleTimerLow;
+        _triangle.register1 = data;
+        _triangle.period = (_triangle.period & 0x0700) | _triangle.Register1Flag.triangleTimerLow;
         break;
     case triangleAddress2:
-        triangle.register2 = data;
-        triangle.period = (static_cast<uint16_t>(triangle.Register2Flag.triangleTimerHigh) << 8) | (triangle.period & 0xFF);
-        if (registers.controlFlag.triangleEnable) {
-            triangle.lengthCounter = lengthCounterTable[triangle.Register2Flag.lengthCounter];
+        _triangle.register2 = data;
+        _triangle.period = (static_cast<uint16_t>(_triangle.Register2Flag.triangleTimerHigh) << 8) | (_triangle.period & 0xFF);
+        if (_registers.controlFlag.triangleEnable) {
+            _triangle.lengthCounter = lengthCounterTable[_triangle.Register2Flag.lengthCounter];
         }
-        triangle.linearCounterReload = true;
+        _triangle.linearCounterReload = true;
         break;
     case apuControlAddress:
-        registers.control = data;
-        if (!registers.controlFlag.pulse1Enable) {
-            pulse1.lengthCounter = 0;
+        _registers.control = data;
+        if (!_registers.controlFlag.pulse1Enable) {
+            _pulse1.lengthCounter = 0;
         }
-        if (!registers.controlFlag.pulse2Enable) {
-            pulse2.lengthCounter = 0;
+        if (!_registers.controlFlag.pulse2Enable) {
+            _pulse2.lengthCounter = 0;
         }
-        if (!registers.controlFlag.triangleEnable) {
-            triangle.lengthCounter = 0;
+        if (!_registers.controlFlag.triangleEnable) {
+            _triangle.lengthCounter = 0;
         }
         break;
     default:
@@ -178,9 +178,9 @@ void Apu::reset()
 float Apu::getMixedOutput(float time)
 {
     auto lock = LockGuard{_mutex};
-    auto outputPulse1 = getPulseOutput(pulse1, time);
-    auto outputPulse2 = getPulseOutput(pulse2, time);
-    auto outputTriangle = getTriangleOutput(triangle, time);
+    auto outputPulse1 = getPulseOutput(_pulse1, time);
+    auto outputPulse2 = getPulseOutput(_pulse2, time);
+    auto outputTriangle = getTriangleOutput(_triangle, time);
 
     return (outputPulse1 * 0.10f + outputPulse2 * 0.10f + outputTriangle * 0.25f) * 0.25f;
 }
@@ -218,9 +218,9 @@ float Apu::getPulseOutput(Pulse pulse, float time)
 float Apu::getTriangleOutput(Triangle triangle, float time)
 {
     auto outputTriangle = 0.0f;
-    if ((triangle.lengthCounter > 0) && (triangle.linearCounter > 0)) {
+    if ((_triangle.lengthCounter > 0) && (_triangle.linearCounter > 0)) {
         // Period is 32 times the period because we have a 32-step sequence
-        auto period = (32.0f * static_cast<float>(triangle.period)) / apuFrequency;
+        auto period = (32.0f * static_cast<float>(_triangle.period)) / apuFrequency;
         // Compute cycle percentage based from period and time
         auto cyclePercentage = (time - floor(time / period) * period) / period;
         // Convert cycle percentage to which step we are in triangle sequence
@@ -261,18 +261,18 @@ float Apu::getDutyCycle(uint8_t dutyCycle)
 
 void Apu::doQuarterFrame()
 {
-    doEnvelope(pulse1);
-    doEnvelope(pulse2);
-    doLinearCounters(triangle);
+    doEnvelope(_pulse1);
+    doEnvelope(_pulse2);
+    doLinearCounters(_triangle);
 }
 
 void Apu::doHalfFrame()
 {
-    doLengthCounters(pulse1, registers.controlFlag.pulse1Enable);
-    doLengthCounters(pulse2, registers.controlFlag.pulse2Enable);
-    doLengthCounters(triangle, registers.controlFlag.triangleEnable);
-    doSweep(pulse1);
-    doSweep(pulse2);
+    doLengthCounters(_pulse1, _registers.controlFlag.pulse1Enable);
+    doLengthCounters(_pulse2, _registers.controlFlag.pulse2Enable);
+    doLengthCounters(_triangle, _registers.controlFlag.triangleEnable);
+    doSweep(_pulse1);
+    doSweep(_pulse2);
 }
 
 void Apu::doEnvelope(Pulse& pulse)

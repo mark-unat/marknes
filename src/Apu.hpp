@@ -8,30 +8,30 @@
 
 #include "IDevice.hpp"
 
-typedef struct PulseRegister0Flags {
+struct PulseRegister0Flags {
     uint8_t envelopePeriod : 4;
     bool constantEnvelopeFlag : 1;
     bool lengthCounterHalt : 1;
     uint8_t dutyCycle : 2;
-} PulseRegister0Flags;
+};
 
-typedef struct PulseRegister1Flags {
+struct PulseRegister1Flags {
     uint8_t sweepShiftCount : 3;
     bool sweepNegateFlag : 1;
     uint8_t sweepPeriod : 3;
     bool sweepEnableFlag : 1;
-} PulseRegister1Flags;
+};
 
-typedef struct PulseRegister2Flags {
+struct PulseRegister2Flags {
     uint8_t pulseTimerLow;
-} PulseRegister2Flags;
+};
 
-typedef struct PulseRegister3Flags {
+struct PulseRegister3Flags {
     uint8_t pulseTimerHigh : 3;
     uint8_t lengthCounter : 5;
-} PulseRegister3Flags;
+};
 
-typedef struct Pulse {
+struct Pulse {
     // Registers
     union {
         uint8_t register0;
@@ -61,23 +61,23 @@ typedef struct Pulse {
     uint8_t sweepCounter{0x00};
     bool sweepDone{false};
     uint8_t lengthCounter{0x00};
-} Pulse;
+};
 
-typedef struct TriangleRegister0Flags {
+struct TriangleRegister0Flags {
     uint8_t linearCounterReload : 7;
     bool lengthCounterHalt : 1;
-} TriangleRegister0Flags;
+};
 
-typedef struct TriangleRegister1Flags {
+struct TriangleRegister1Flags {
     uint8_t triangleTimerLow;
-} TriangleRegister1Flags;
+};
 
-typedef struct TriangleRegister2Flags {
+struct TriangleRegister2Flags {
     uint8_t triangleTimerHigh : 3;
     uint8_t lengthCounter : 5;
-} TriangleRegister2Flags;
+};
 
-typedef struct Triangle {
+struct Triangle {
     // Registers
     union {
         uint8_t register0;
@@ -97,23 +97,23 @@ typedef struct Triangle {
     uint8_t lengthCounter{0x00};
     bool linearCounterReload{false};
     uint8_t linearCounter{0x00};
-} Triangle;
+};
 
-typedef struct ControlRegisterFlags {
+struct ControlRegisterFlags {
     bool pulse1Enable : 1;
     bool pulse2Enable : 1;
     bool triangleEnable : 1;
     bool noiseEnable : 1;
     bool dmcEnable : 1;
     uint8_t unused : 3;
-} ControlRegisterFlags;
+};
 
-typedef struct ApuRegister {
+struct ApuRegister {
     union {
         uint8_t control;
         ControlRegisterFlags controlFlag;
     };
-} ApuRegister;
+};
 
 class Apu : public IDevice {
 public:
@@ -152,12 +152,12 @@ private:
     uint32_t _frameCounter{0};
 
     // APU registers
-    ApuRegister registers;
+    ApuRegister _registers;
 
     // Pulse data
-    Pulse pulse1;
-    Pulse pulse2;
+    Pulse _pulse1;
+    Pulse _pulse2;
 
     // Triangle data
-    Triangle triangle;
+    Triangle _triangle;
 };

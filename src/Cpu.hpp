@@ -45,7 +45,7 @@ enum class StatusBit {
     bitNegative,
 };
 
-typedef struct StatusFlags {
+struct StatusFlags {
     bool carry : 1;
     bool zero : 1;
     bool disableInterrupt : 1;
@@ -54,9 +54,9 @@ typedef struct StatusFlags {
     bool unused : 1;
     bool overflow : 1;
     bool negative : 1;
-} StatusFlags;
+};
 
-typedef struct CpuRegister {
+struct CpuRegister {
     uint16_t programCounter;
     uint8_t stackPointer;
     uint8_t accumulator;
@@ -66,24 +66,24 @@ typedef struct CpuRegister {
         uint8_t status;
         StatusFlags statusFlag;
     };
-} CpuRegister;
+};
 
-typedef struct Command {
+struct Command {
     uint8_t opCodeId;
     OpCode opCode;
     uint8_t opCodeLength;
     AddressMode addressMode;
     std::string name;
     uint8_t cycles;
-} Command;
+};
 
-typedef struct DMA {
+struct DMA {
     bool mode;
     bool startTransfer;
     uint8_t addressLow;
     uint8_t addressHigh;
     uint8_t data;
-} DMA;
+};
 
 class Cpu {
 public:
