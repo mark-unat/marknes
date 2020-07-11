@@ -45,9 +45,8 @@ bool Controller::write(uint16_t address, uint8_t data)
     // Take a snapshot of the current buttons w/c will be used for reading
     switch (address) {
     case controller1Address:
-        _buttonsCached[0] = _buttons[0];
-        break;
     case controller2Address:
+        _buttonsCached[0] = _buttons[0];
         _buttonsCached[1] = _buttons[1];
         break;
     default:
