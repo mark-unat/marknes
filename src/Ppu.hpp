@@ -36,7 +36,7 @@ struct ControlFlags {
     bool spritePatternTable : 1;
     bool backgroundPatternTable : 1;
     bool spriteSize : 1;
-    bool masterSalveSelect : 1;
+    bool extPinSelect : 1;
     bool NMIEnabledOnVBlank : 1;
 };
 
